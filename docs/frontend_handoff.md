@@ -8,9 +8,11 @@ Build a local-first web app for importing vocational course and teacher data, re
 
 - Use React with plain JavaScript and Vite. Do not use TypeScript.
 - Keep application logic in JavaScript. Do not introduce Python services or Python-written algorithms.
-- Plan for one local Node.js + Express app to serve the frontend and API.
-- Use a local SQLite database rather than a mock database. It should persist data across app restarts without requiring a separate database server.
-- The AI runs on another laptop on the local network. The browser talks to the app server; the app server talks to the AI endpoint. Keep the AI address configurable.
+- Keep the first ingest slice browser-local: Vite serves the app, JavaScript reads files, and no separate API server is required yet.
+- Use browser-native IndexedDB for saved drafts and original files. This is persistent local storage, not a mock database.
+- Read `.xlsx` with ExcelJS and text-based PDFs with PDF.js. Legacy `.xls` files and scanned-PDF OCR are not supported in this first slice.
+- The optional AI connector accepts a configurable OpenAI-compatible chat-completions URL on the other laptop. It sends extracted text only after the user requests a proposal. That AI service must allow browser CORS requests; add a small Express proxy later if it cannot.
+- Do not require a fixed AI extraction shape. Show its source-specific proposal for review, then use the user's confirmed column mapping to create stable records.
 - Keep the scheduling solver undecided until a JavaScript-compatible option is tested against the supplied timetable data.
 - Keep automated tests small and fast. Node's built-in test runner is the initial preference.
 
@@ -18,7 +20,7 @@ Build a local-first web app for importing vocational course and teacher data, re
 
 1. User uploads an Excel workbook or PDF.
 2. The app identifies the file type and inspects workbook sheets, headers, PDF pages, and extractable tables/text.
-3. The app asks the local AI service to propose a source-specific schema, field mapping, and extracted records. The example schema in `scheduling_constraints.md` is a suggestion, not a fixed upload format.
+3. Optionally ask the configured local AI service to propose a source-specific schema and interpretation. The example schema in `scheduling_constraints.md` is a suggestion, not a fixed upload or AI response format.
 4. The user reviews a preview showing extracted values, source sheet/page/cell when available, field mappings, and uncertain items.
 5. The user can correct mappings and values, leave unrelated extra fields unused, then confirm the import.
 6. The app validates confirmed data and reports missing, invalid, duplicate, or contradictory records. Do not silently drop records or convert guesses into hard constraints.
@@ -30,9 +32,9 @@ Build a local-first web app for importing vocational course and teacher data, re
 - Match spreadsheet fields by header, not fixed column position. Support reordered columns, extra columns, and Thai or English labels.
 - Preserve unknown columns as source data. Do not apply an unknown column as a scheduling rule unless the user maps/confirms it.
 - Support multi-sheet workbooks and let the user see which sheets will be imported.
-- Extract text/tables from text-based PDFs. Scanned PDFs may need OCR; mark OCR results and uncertain fields for user confirmation.
+- Extract workbook rows and text from text-based PDFs. Flag PDFs with little selectable text; OCR is a later addition.
 - Keep the original file and show where imported values came from. Thai and English versions of the same workbook are alternative representations of the same records, not duplicate datasets.
-- If the AI endpoint is unavailable, clearly show that extraction cannot continue yet; retain the upload/draft where possible and allow retry. Do not pretend extraction succeeded.
+- If the AI endpoint is unavailable, manual header mapping, preview, and local draft saving should still work. Show an error for the AI request without implying that it succeeded.
 
 ## Timetable Views and Actions
 
@@ -64,7 +66,7 @@ Build a local-first web app for importing vocational course and teacher data, re
 
 ## Boundaries and Open Decisions
 
-- Frontend should not call the AI laptop directly; use the local app API.
-- AI output is a proposal for review, not trusted scheduler input. The backend must validate and normalize confirmed data before scheduling.
-- PDF/OCR library, Excel library, exact API contract, AI provider/protocol, and JavaScript scheduling solver are not locked yet.
+- The current AI call is browser-to-configured-endpoint and requires CORS. Move it behind Express only if the AI service cannot allow that safely.
+- AI output is a proposal for review, not trusted scheduler input. Confirmed column mappings are normalized before they can be used by a future scheduler.
+- OCR, the exact AI service/model, an Express proxy, and the JavaScript scheduling solver remain open.
 - Full scheduling rules and source notes are in `docs/scheduling_constraints.md`; consult it before implementing schedule controls.
