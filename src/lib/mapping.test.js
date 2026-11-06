@@ -5,6 +5,7 @@ import { guessSourceType, suggestColumnMappings, suggestHeaderRow } from "./mapp
 test("source type can be suggested from Thai workbook sheet names", () => {
   assert.equal(guessSourceType("ครู"), "teachers");
   assert.equal(guessSourceType("ปวช.2"), "courses");
+  assert.equal(guessSourceType("Vocational Certificate Year 2"), "courses");
 });
 
 test("header detection skips a workbook title row", () => {

@@ -11,8 +11,7 @@ Build a local-first web app for importing vocational course and teacher data, re
 - Keep the first ingest slice browser-local: Vite serves the app, JavaScript reads files, and no separate API server is required yet.
 - Use browser-native IndexedDB for saved drafts and original files. This is persistent local storage, not a mock database.
 - Read `.xlsx` with ExcelJS and text-based PDFs with PDF.js. Legacy `.xls` files and scanned-PDF OCR are not supported in this first slice.
-- The optional AI connector accepts a configurable OpenAI-compatible chat-completions URL on the other laptop. It sends extracted text only after the user requests a proposal. That AI service must allow browser CORS requests; add a small Express proxy later if it cannot.
-- Do not require a fixed AI extraction shape. Show its source-specific proposal for review, then use the user's confirmed column mapping to create stable records.
+- Import uses automatic Thai/English header suggestions plus user-controlled source type, header row, and column mapping. There is no external AI service in the ingest flow.
 - Keep the scheduling solver undecided until a JavaScript-compatible option is tested against the supplied timetable data.
 - Keep automated tests small and fast. Node's built-in test runner is the initial preference.
 
@@ -20,12 +19,12 @@ Build a local-first web app for importing vocational course and teacher data, re
 
 1. User uploads an Excel workbook or PDF.
 2. The app identifies the file type and inspects workbook sheets, headers, PDF pages, and extractable tables/text.
-3. Optionally ask the configured local AI service to propose a source-specific schema and interpretation. The example schema in `scheduling_constraints.md` is a suggestion, not a fixed upload or AI response format.
-4. The user reviews a preview showing extracted values, source sheet/page/cell when available, field mappings, and uncertain items.
-5. The user can correct mappings and values, leave unrelated extra fields unused, then confirm the import.
-6. The app validates confirmed data and reports missing, invalid, duplicate, or contradictory records. Do not silently drop records or convert guesses into hard constraints.
+3. The app suggests Thai/English header mappings; the user selects the source type, header row, included sheets, and field mappings.
+4. The user reviews a preview showing extracted values, source sheet/page/cell when available, and validation issues.
+5. The user can correct mappings, leave unrelated extra fields unused, then confirm the import.
+6. The app validates confirmed data and reports missing, invalid, duplicate, or contradictory records. Do not silently drop records or turn guesses into hard constraints.
 7. Approved data is normalized into consistent scheduler records and saved locally.
-8. User generates a timetable, reviews any conflicts or infeasibility explanation, then views and exports the result.
+8. The user generates a timetable, reviews conflicts or infeasibility explanations, then views and exports the result.
 
 ## Import Experience
 
@@ -34,7 +33,7 @@ Build a local-first web app for importing vocational course and teacher data, re
 - Support multi-sheet workbooks and let the user see which sheets will be imported.
 - Extract workbook rows and text from text-based PDFs. Flag PDFs with little selectable text; OCR is a later addition.
 - Keep the original file and show where imported values came from. Thai and English versions of the same workbook are alternative representations of the same records, not duplicate datasets.
-- If the AI endpoint is unavailable, manual header mapping, preview, and local draft saving should still work. Show an error for the AI request without implying that it succeeded.
+- Header mapping and preview should work without any external service or network connection.
 
 ## Timetable Views and Actions
 
@@ -58,7 +57,7 @@ Build a local-first web app for importing vocational course and teacher data, re
 ## Important UI States
 
 - Empty state before any data is imported.
-- Upload progress, parsing/extraction progress, AI unavailable, and recoverable error states.
+- Upload progress, parsing/extraction progress, and recoverable error states.
 - Import preview with mapped, unmapped, and uncertain fields.
 - Validation results with row/course/teacher references and clear correction paths.
 - Schedule generation progress, success, warnings, and infeasible result with explanation.
@@ -66,7 +65,5 @@ Build a local-first web app for importing vocational course and teacher data, re
 
 ## Boundaries and Open Decisions
 
-- The current AI call is browser-to-configured-endpoint and requires CORS. Move it behind Express only if the AI service cannot allow that safely.
-- AI output is a proposal for review, not trusted scheduler input. Confirmed column mappings are normalized before they can be used by a future scheduler.
-- OCR, the exact AI service/model, an Express proxy, and the JavaScript scheduling solver remain open.
+- OCR and the JavaScript scheduling solver remain open.
 - Full scheduling rules and source notes are in `docs/scheduling_constraints.md`; consult it before implementing schedule controls.

@@ -7,7 +7,7 @@ const COMMON_FIELDS = [
   { key: "roomRequirement", label: "Room requirement", aliases: ["teaching room", "room", "room requirement", "ห้องที่ใช้สอน"] },
   { key: "category", label: "Course category", aliases: ["category", "หมวดวิชา"] },
   { key: "academicYear", label: "Academic year", aliases: ["academic year", "year", "ระดับชั้น"] },
-  { key: "teacherName", label: "Teacher name", aliases: ["teacher", "teacher name", "instructor", "รายชื่อครู"] },
+  { key: "teacherName", label: "Teacher name", aliases: ["teacher", "teachers", "teacher name", "instructor", "รายชื่อครู"] },
   { key: "position", label: "Position", aliases: ["position", "role", "ตำแหน่ง"] },
   { key: "availability", label: "Availability / unavailability", aliases: ["availability", "unavailable", "additional requirements", "ข้อกำหนดเพิ่มเติม"] },
   { key: "roomName", label: "Room name", aliases: ["room name", "ห้องเรียน"] },
@@ -51,7 +51,7 @@ export function guessSourceType(name = "") {
   if (/teacher|ครู/.test(value)) return "teachers";
   if (/room|ห้อง/.test(value)) return "rooms";
   if (/constraint|requirement|ข้อกำหนด/.test(value)) return "constraints";
-  if (/course|subject|รายวิชา|ปวช/.test(value)) return "courses";
+  if (/course|subject|vocational|certificate|year\s*[1-3]|รายวิชา|ปวช/.test(value)) return "courses";
   return "document";
 }
 

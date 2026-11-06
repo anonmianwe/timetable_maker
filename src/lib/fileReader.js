@@ -1,8 +1,4 @@
-import ExcelJS from "exceljs";
-import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -20,6 +16,7 @@ function cellToText(value) {
 }
 
 async function readWorkbook(file) {
+  const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(await file.arrayBuffer());
 
@@ -43,6 +40,8 @@ async function readWorkbook(file) {
 }
 
 async function readPdf(file) {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const pdf = await pdfjsLib.getDocument({
     data: new Uint8Array(await file.arrayBuffer()),
   }).promise;

@@ -16,11 +16,11 @@ Represent each lesson assignment with academic year, student group(s), course, d
 ## Adaptable file ingestion requirements
 
 - Accept Excel workbooks and PDF documents whose layouts, column names, languages, and number of fields may differ from the supplied examples. Do not require uploads to match one fixed extraction JSON shape.
-- Use a configurable external AI extraction service to inspect the uploaded source and propose a source-appropriate schema, field mapping, and structured extraction. The JSON shape in this document is a suggested default/template, not a mandatory AI output contract.
+- Use a suggested internal record shape as a mapping target, not as a required upload layout. Suggest mappings from recognizable Thai and English headers, then let the user choose the source type, header row, and field mappings.
 - Handle reordered or additional Excel columns by mapping headers rather than fixed column positions. Preserve unmapped fields as source data and do not silently interpret them as scheduling rules.
 - For PDFs, extract text and tables where possible; use OCR for scanned pages. Mark uncertain or ambiguous fields for review rather than treating guesses as confirmed constraints.
-- Show the proposed schema, extracted records, source location/evidence, and uncertain mappings in an import preview. Require user confirmation or correction before importing records into the scheduler.
-- Validate the confirmed data and normalize it into the system's stable scheduling entities (courses, groups, teachers, rooms, availability, and constraints). The scheduling engine must consume these normalized entities, not arbitrary AI-generated JSON directly.
+- Show extracted records, source location/evidence, and unmapped fields in an import preview. Require user confirmation or correction before importing records into the scheduler.
+- Validate confirmed data and normalize it into the system's stable scheduling entities (courses, groups, teachers, rooms, availability, and constraints) before the scheduler consumes it.
 - Retain the original upload and record the extraction/schema version and user-approved field mappings so imports can be audited or corrected later.
 
 ## Hard student constraints
