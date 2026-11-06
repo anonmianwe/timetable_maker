@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Timetable Maker – ต้นแบบ UI</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f3f5f2;--sf:#fff;--tx:#1d2420;--mu:#5d6962;--ln:#d5dbd6;--ac:#1f6f5c;--acs:#dcefe9;--ok:#1d7a3e;--oks:#e0f2e6;--wn:#9a6200;--wns:#fbefd5;--er:#b3261e;--ers:#fbe3e1;--th:#dbe8f7;--pr:#f5e3d3;--ac2:#e8e8e8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141916;--sf:#1c231f;--tx:#e6ece8;--mu:#9aa89f;--ln:#34403a;--ac:#5fc2a8;--acs:#1f3a32;--ok:#6fd08f;--oks:#1d3a27;--wn:#e8b44f;--wns:#3d3016;--er:#ff8d84;--ers:#451f1c;--th:#22364d;--pr:#4a3524;--ac2:#2a312d}}
+:root[data-theme="dark"]{--bg:#141916;--sf:#1c231f;--tx:#e6ece8;--mu:#9aa89f;--ln:#34403a;--ac:#5fc2a8;--acs:#1f3a32;--ok:#6fd08f;--oks:#1d3a27;--wn:#e8b44f;--wns:#3d3016;--er:#ff8d84;--ers:#451f1c;--th:#22364d;--pr:#4a3524;--ac2:#2a312d}
+html{height:100%}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 "IBM Plex Sans Thai",system-ui,sans-serif}
+header{background:var(--sf);border-bottom:1px solid var(--ln);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.bar{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.bar h1{font-size:17px;margin:0;font-weight:600;margin-right:auto}
+.steps{display:flex;gap:6px}
+.steps button{border:1px solid var(--ln);background:var(--sf);color:var(--tx);padding:7px 14px;border-radius:6px;font:inherit;cursor:pointer}
+.steps button[aria-current=step]{background:var(--ac);color:#fff;border-color:var(--ac)}
+.steps button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+.demo{background:var(--wns);color:var(--wn);padding:8px 12px;border-radius:6px;margin-bottom:16px;font-size:13px}
+section.p{background:var(--sf);border:1px solid var(--ln);border-radius:8px;padding:16px;margin-bottom:14px}
+h2{font-size:16px;margin:0 0 10px;font-weight:600}
+.tag{font-size:11px;background:var(--acs);color:var(--ac);padding:1px 7px;border-radius:10px;margin-left:8px;font-weight:500}
+body.notags .tag{display:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--ac);background:var(--ac);color:#fff;padding:8px 16px;border-radius:6px;font:inherit;cursor:pointer}
+.btn.s{background:var(--sf);color:var(--ac)}.btn:disabled{opacity:.45;cursor:not-allowed}
+.drop{border:2px dashed var(--ln);border-radius:8px;padding:28px 16px;text-align:center;color:var(--mu)}
+.badge{padding:2px 10px;border-radius:10px;font-size:13px}
+.b-ok{background:var(--oks);color:var(--ok)}.b-er{background:var(--ers);color:var(--er)}.b-wn{background:var(--wns);color:var(--wn)}.b-mu{background:var(--ac2);color:var(--mu)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--ln);vertical-align:top}
+th{font-weight:500;color:var(--mu)}
+.wrap{overflow-x:auto}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button{border:1px solid var(--ln);background:var(--sf);color:var(--tx);padding:6px 12px;border-radius:6px;font:inherit;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.prog{height:10px;background:var(--ac2);border-radius:5px;overflow:hidden}.prog i{display:block;height:100%;width:0;background:var(--ac);transition:width .2s}
+.log{background:var(--ac2);border-radius:6px;padding:8px 10px;font-size:13px;max-height:130px;overflow:auto;margin-top:10px;min-height:40px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+label{font-size:13px;color:var(--mu);display:block}
+input[type=number],select{font:inherit;padding:6px 8px;border:1px solid var(--ln);border-radius:6px;background:var(--sf);color:var(--tx);width:100%}
+.tt{min-width:640px;table-layout:fixed}.tt td,.tt th{border:1px solid var(--ln);padding:3px 4px;font-size:12px;height:46px;text-align:center}
+.tt .th{background:var(--th)}.tt .pr{background:var(--pr)}.tt .bk{background:var(--ac2);color:var(--mu)}.tt .xx{background:var(--ers);color:var(--er)}.tt .na{background:repeating-linear-gradient(45deg,transparent 0 6px,var(--ac2) 6px 7px)}
+.tt small{display:block;color:var(--mu)}
+details summary{cursor:pointer}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 16px;border-radius:6px;font-size:14px;display:none;z-index:9}
+.stat{display:flex;gap:18px;flex-wrap:wrap}.stat div b{display:block;font-size:20px}
+.stat div span{color:var(--mu);font-size:13px}
+</style></head><body>
+<header><div class="bar"><h1>Timetable Maker</h1>
+<nav class="steps" id="steps" aria-label="ขั้นตอน"></nav>
+<label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="tg" checked> ป้ายข้อประเมิน</label></div></header>
+<main><div class="demo">ต้นแบบ UI: ข้อมูลทั้งหมดเป็นข้อมูลจำลอง ยังไม่ได้เชื่อม API, AI หรือตัวจัดตารางจริง</div><div id="v"></div></main>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s);
+const S={step:1,file:null,extracted:false,aiDown:false,confirmed:false,tab:'courses',running:false,done:false,prog:0,series:[],infeasible:false,vt:'student',vy:1,vg:1,ve:''};
+try{const o=JSON.parse(localStorage.getItem('tt-proto')||'{}');['confirmed','done','file','extracted'].forEach(k=>{if(o[k])S[k]=o[k]});if(S.done)S.series=fit(30);if(o.step&&(o.step==1||(o.step==2&&S.confirmed)||(o.step==3&&S.done)))S.step=o.step}catch(e){}
+function save(){try{localStorage.setItem('tt-proto',JSON.stringify({step:S.step,confirmed:S.confirmed,done:S.done,file:S.file,extracted:S.extracted}))}catch(e){}}
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',2600)}
+function fit(n){const a=[];let v=62;for(let i=0;i<n;i++){v=Math.max(0,v-(i<15?4:1.2)*(.6+Math.random()*.8));a.push(Math.round(v))}a[n-1]=S.infeasible?3:0;return a}
+const D={courses:['รายวิชา',48,['รหัส','ชื่อวิชา','ชม.','ประเภท','ที่มา'],[['3000-1201','ภาษาไทยพื้นฐาน','2','ทฤษฎี','วิชา!B5'],['20901-2001','โปรแกรมพื้นฐาน','4','ปฏิบัติ (COM)','วิชา!B6'],['20105-2002','ปฏิบัติเครือข่าย','3','ปฏิบัติ (LAB)','วิชา!B7']]],
+teachers:['ครู',12,['ชื่อ','ตำแหน่ง','ไม่ว่าง','ที่มา'],[['ครู A','ครูประจำ','พุธ คาบ 1–4','ครู!A2'],['ครู B','หัวหน้าแผนก','—','ครู!A3']]],
+rooms:['ห้อง',6,['ห้อง','ประเภท','ที่มา'],[['COM1','คอมพิวเตอร์','ห้อง!A2'],['LAB1','แล็บ','ห้อง!A6']]],
+times:['เวลา',11,['รายการ','ค่า','ที่มา'],[['วันจัดตาราง','จันทร์–ศุกร์','เวลา!A2'],['คาบสูงสุด ปี 1','9','เวลา!A3']]],
+rules:['โจทย์/เงื่อนไข',9,['เงื่อนไข','สถานะ','ที่มา'],[['กิจกรรมพฤหัส คาบ 6–7','ยืนยันแล้ว','โจทย์!B2'],['คอลัมน์ “หมายเหตุ”','ไม่ได้ใช้','โจทย์!F1']]]};
+const MAP=[['รหัสวิชา','code','วิชา!A1','mapped'],['ชื่อวิชา / Course name','name','วิชา!B1','mapped'],['ชั่วโมง','hours','วิชา!C1','uncertain'],['หมายเหตุ','—','วิชา!F1','unmapped']];
+const ISS=[['b-wn','แถว 14 (วิชา!A14)','ชั่วโมงเป็นค่าว่าง ต้องกรอกหรือยืนยันก่อน'],['b-wn','ครู A','ชื่อซ้ำ 2 แถว (ครู!A2, ครู!A9) ตรวจว่าเป็นคนเดียวกันหรือไม่']];
+const CHK=[['1.1','ปวช. ไม่เกินคาบ 9 / ระดับอื่นไม่เกินคาบ 11'],['1.2','พักกลางวัน 1 ชม. ในคาบ 4, 5 หรือ 6'],['1.3','กิจกรรมและลูกเสือ พฤหัสบดี คาบ 6–7'],['1.4','ทฤษฎีเรียนรวม / ปฏิบัติแยกกลุ่ม'],['1.5','ภาระสอนครูตามเกณฑ์ตำแหน่ง'],['1.6','ห้อง COM/LAB ถูกประเภท ไม่ใช้ซ้อน'],['1.7','คาบของแต่ละวิชาต่อเนื่อง'],['1.8','ครูไม่มีตารางซ้อน'],['1.9','นักเรียนแต่ละกลุ่มไม่มีตารางซ้อน'],['1.10','ครูและห้องไม่สอนช่วงที่ไม่พร้อม'],['1.11','เริ่มคาบ 1 ไม่มีคาบว่าง ยกเว้นพัก'],['1.12','ข้อกำหนดเฉพาะรายวิชา วัน และคาบ']];
+function chkState(i){if(i==9)return['unk','ข้ามการตรวจ: ยังไม่มีข้อมูลห้องที่ไม่พร้อม (นำเข้าได้เฉพาะครู A ว่างพุธ คาบ 1–4)'];if(S.infeasible&&i==10)return['fail','จัดไม่ได้: ปี 3 พฤหัสบดี คาบ 6–7 ชนกับพักคาบ 6 และห้ามมีคาบว่าง ลองพักคาบ 4 หรือ 5 ในวันนั้น'];return['pass','ผ่านทุกกลุ่ม (ข้อมูลจำลอง)']}
+/* mock schedule */
+const RM=['COM1','COM2','COM3','COM4','LAB1','LAB2'],DAYS=['จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์'],L=[];let cn=0;
+for(let y=1;y<=3;y++){const end=[0,9,10,11][y],brk=[0,5,5,4][y];let k=0;
+for(let d=0;d<5;d++){let segs=[],a=[];for(let p=1;p<=end;p++){if(p==brk){if(a.length)segs.push(a);a=[]}else if(d==3&&(p==6||p==7)){if(a.length)segs.push(a);a=[];if(p==6)L.push({y,g:[1,2],d,s:6,len:2,code:'ACT'+y,name:'กิจกรรม/ลูกเสือ',t:'ครูกิจกรรม',r:'ลานกิจกรรม',k:'t'})}else a.push(p)}
+if(a.length)segs.push(a);
+for(const sg of segs){let i=0;while(i<sg.length){let n=sg.length-i;n=n==4?2:n>3?2:n;const s=sg[i],kind=k++%2?'p':'t';cn++;const code='C'+y+String(cn).padStart(2,'0');
+if(kind=='t')L.push({y,g:[1,2],d,s,len:n,code,name:'วิชาทฤษฎี '+cn,t:'ครูทฤษฎี ปี '+y,r:'ห้องเรียนรวม ปี '+y,k:'t'});
+else[1,2].forEach(g=>L.push({y,g:[g],d,s,len:n,code,name:'วิชาปฏิบัติ '+cn,t:'ครู ปี'+y+'/ก'+g,r:RM[(y-1)*2+g-1],k:'p'}));i+=n}}}}
+const brkOf=y=>[0,5,5,4][y],endOf=y=>[0,9,10,11][y];
+function opts(t){const s=new Set();L.forEach(l=>{s.add(t=='teacher'?l.t:t=='room'?l.r:l.code+' '+l.name)});return[...s].sort()}
+function tt(){let list,y=S.vy,mx=11;const t=S.vt;
+if(t=='student'){list=L.filter(l=>l.y==y&&l.g.includes(S.vg));mx=endOf(y)}
+else{if(!S.ve||!opts(t).includes(S.ve))S.ve=opts(t)[0];list=L.filter(l=>(t=='teacher'?l.t:t=='room'?l.r:l.code+' '+l.name)==S.ve)}
+let h='<div class="wrap"><table class="tt"><tr><th style="width:56px">คาบ</th>'+DAYS.map(d=>'<th>'+d+'</th>').join('')+'</tr>';const skip={};
+for(let p=1;p<=mx;p++){h+='<tr><th>'+p+'</th>';for(let d=0;d<5;d++){if(skip[d+'_'+p])continue;const hit=list.filter(l=>l.d==d&&l.s<=p&&p<l.s+l.len);const st=hit.find(l=>l.s==p);
+if(hit.length>1){h+='<td class="xx">ซ้อน</td>';continue}
+if(st){for(let q=p+1;q<p+st.len;q++)skip[d+'_'+q]=1;h+='<td rowspan="'+st.len+'" class="'+st.k+'"><b>'+st.code+'</b><small>'+st.name+'</small><small>'+(t=='teacher'?st.r:st.t)+(t=='room'?'':' · '+st.r)+'</small></td>'}
+else if(hit.length)continue;
+else if(t=='student'&&p==brkOf(y))h+='<td class="bk">พัก</td>';else h+='<td class="na"></td>'}h+='</tr>'}
+return{html:h+'</table></div>',n:list.length,periods:list.reduce((a,l)=>a+l.len,0)}}
+/* views */
+const T=(x,n)=>'<span class="tag">ข้อ '+x+'</span>';
+function stepsNav(){$('#steps').innerHTML=['Input','Processing','Output'].map((n,i)=>'<button data-s="'+(i+1)+'"'+(S.step==i+1?' aria-current="step"':'')+((i==1&&!S.confirmed)||(i==2&&!S.done)?' disabled':'')+'>'+(i+1)+'. '+n+'</button>').join('')}
+function v1(){const ok=!S.aiDown;let h='<section class="p"><h2>นำเข้าไฟล์'+T('3.1')+'</h2>';
+if(!S.file)h+='<div class="drop"><p>ยังไม่มีข้อมูล อัปโหลดไฟล์ Excel หรือ PDF เพื่อเริ่ม</p><div class="row" style="justify-content:center"><label class="btn" style="color:#fff;cursor:pointer">เลือกไฟล์<input type="file" id="f" accept=".xlsx,.xls,.pdf" hidden></label><button class="btn s" id="smp">ใช้ไฟล์ตัวอย่าง</button></div></div>';
+else h+='<div class="row"><b>'+S.file+'</b><span class="badge '+(S.extracted?'b-ok':ok?'b-mu':'b-er')+'">'+(S.extracted?'ดึงข้อมูลแล้ว':ok?'กำลังดึงข้อมูล…':'ดึงข้อมูลไม่ได้')+'</span><button class="btn s" id="rst" style="margin-left:auto">เปลี่ยนไฟล์</button></div>';
+h+='<div class="row" style="margin-top:12px"><span>AI endpoint</span><span class="badge '+(ok?'b-ok':'b-er')+'">'+(ok?'เชื่อมต่อแล้ว':'เชื่อมต่อไม่ได้')+'</span><button class="btn s" id="ai">'+(ok?'จำลอง: AI ใช้ไม่ได้':'ลองเชื่อมใหม่')+'</button></div>';
+if(!ok)h+='<p class="badge b-er" style="display:block;margin-top:10px;border-radius:6px;padding:8px 12px">ยังดึงข้อมูลต่อไม่ได้ เพราะเชื่อมต่อ AI บนเครื่องอีกเครื่องไม่ได้ ไฟล์ที่อัปโหลดยังอยู่ กดลองเชื่อมใหม่เมื่อพร้อม</p>';
+h+='</section>';
+if(S.extracted&&ok){h+='<section class="p"><h2>ข้อมูลที่ดึงได้</h2><div class="tabs" role="tablist">'+Object.keys(D).map(k=>'<button role="tab" data-t="'+k+'" aria-selected="'+(S.tab==k)+'">'+D[k][0]+' ('+D[k][1]+')</button>').join('')+'</div>';
+const d=D[S.tab];h+='<div class="wrap"><table><tr>'+d[2].map(c=>'<th>'+c+'</th>').join('')+'</tr>'+d[3].map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</table></div></section>';
+h+='<section class="p"><h2>การจับคู่ฟิลด์ (ตามชื่อหัวคอลัมน์)</h2><div class="wrap"><table><tr><th>หัวคอลัมน์ในไฟล์</th><th>ฟิลด์ระบบ</th><th>ที่มา</th><th>สถานะ</th></tr>'+MAP.map(m=>'<tr><td>'+m[0]+'</td><td>'+m[1]+'</td><td>'+m[2]+'</td><td><span class="badge '+(m[3]=='mapped'?'b-ok':m[3]=='uncertain'?'b-wn':'b-mu')+'">'+{mapped:'จับคู่แล้ว',uncertain:'ไม่แน่ใจ ตรวจสอบ',unmapped:'ไม่ใช้ (เก็บไว้เป็นข้อมูลต้นฉบับ)'}[m[3]]+'</span></td></tr>').join('')+'</table></div></section>';
+h+='<section class="p"><h2>ผลตรวจสอบข้อมูล</h2>'+ISS.map(i=>'<p style="margin:6px 0"><span class="badge '+i[0]+'">ต้องแก้</span> <b>'+i[1]+'</b> '+i[2]+'</p>').join('')+'<div class="row" style="margin-top:12px"><button class="btn" id="cf">ยืนยันข้อมูลและไปขั้นประมวลผล</button><span style="color:var(--mu);font-size:13px">ค่าที่ไม่แน่ใจจะไม่ถูกใช้เป็นเงื่อนไขบังคับจนกว่าคุณยืนยัน</span></div></section>'}
+return h}
+function chart(){const s=S.series;if(!s.length)return'<p style="color:var(--mu)">กราฟจะแสดงหลังกดเริ่มจัดตาราง</p>';const w=520,hh=120,mx=Math.max(...s,1);const pts=s.map((v,i)=>(i/(Math.max(s.length-1,1))*w).toFixed(0)+','+(hh-v/mx*(hh-8)-4).toFixed(0)).join(' ');return'<svg viewBox="0 0 '+w+' '+hh+'" width="100%" role="img" aria-label="จำนวนข้อขัดแย้งลดลงตามรอบ"><polyline points="'+pts+'" fill="none" stroke="var(--ac)" stroke-width="2"/></svg><div style="font-size:13px;color:var(--mu)">ข้อขัดแย้ง: '+s[0]+' → '+s[s.length-1]+' ใน '+s.length+' รอบ</div>'}
+function v2(){let h='<section class="p"><h2>แผนการทำงาน'+T('4.1, 4.2, 4.4, 4.6')+'</h2><div class="grid"><div><label>ตัวจัดตาราง (solver)</label><div class="badge b-mu" style="display:inline-block;margin-top:4px">รอเชื่อมกับโมดูลของทีมอัลกอริทึม</div><p style="font-size:13px;color:var(--mu);margin:8px 0 0">ชื่อเทคนิค เหตุผลที่เลือก และพารามิเตอร์จะแสดงจากข้อมูลที่ solver ส่งกลับทาง API</p></div>'+
+'<div><label>ค่าตั้งต้นที่ทุก solver ใช้ร่วมกัน</label><div class="row" style="margin-top:4px"><div style="flex:1"><label>seed</label><input type="number" value="42"></div><div style="flex:1"><label>เวลาสูงสุด (วินาที)</label><input type="number" value="60"></div></div></div></div>'+
+'<p style="margin:12px 0 0;font-size:14px">เงื่อนไขที่นำมาวิเคราะห์: 12 ข้อ (ดูรายการด้านล่าง) · วิชา '+D.courses[1]+' · ครู '+D.teachers[1]+' · ห้อง '+D.rooms[1]+'</p></section>';
+h+='<section class="p"><h2>จัดตาราง'+T('3.2, 4.3, 4.5')+'</h2><div class="row"><button class="btn" id="go"'+(S.running?' disabled':'')+'>'+(S.done?'จัดตารางใหม่':'เริ่มจัดตาราง')+'</button><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="inf"'+(S.infeasible?' checked':'')+'> จำลองกรณีจัดไม่ได้</label></div><div class="prog" style="margin-top:12px"><i id="pb" style="width:'+S.prog+'%"></i></div><div class="log" id="lg">'+(S.done?'เสร็จสิ้น':'ยังไม่เริ่ม')+'</div></section>';
+h+='<section class="p"><h2>หลักฐานการลดข้อขัดแย้ง'+T('4.7, 4.8')+'</h2><div id="ch">'+chart()+'</div></section>';
+if(S.done||S.running){const bad=S.done&&S.infeasible;h+='<section class="p"><h2>ผลตรวจเงื่อนไข'+T('1.1–1.12, 3.3')+'</h2>'+(bad?'<p class="badge b-er" style="display:block;border-radius:6px;padding:8px 12px">จัดตารางให้ครบไม่ได้ ระบบไม่ตัดวิชาทิ้งและไม่ผ่อนกฎเอง ดูสาเหตุที่ข้อ 1.11</p>':'')+'<div class="wrap"><table><tr><th>ข้อ</th><th>เงื่อนไข</th><th>ผล</th></tr>'+CHK.map((c,i)=>{const s=chkState(i);return'<tr><td>'+c[0]+'</td><td>'+c[1]+'</td><td><span class="badge '+{pass:'b-ok',fail:'b-er',unk:'b-wn'}[s[0]]+'">'+{pass:'ผ่าน',fail:'ไม่ผ่าน',unk:'ตรวจไม่ได้'}[s[0]]+'</span> <span style="font-size:13px;color:var(--mu)">'+s[1]+'</span></td></tr>'}).join('')+'</table></div>'+(S.done?'<div class="row" style="margin-top:12px"><button class="btn" id="to3">ดูตารางสอน</button></div>':'')+'</section>'}
+return h}
+function v3(){const r=tt(),t=S.vt;let h='<section class="p"><h2>สรุปผล'+T('2.1')+'</h2><div class="stat"><div><b>'+(S.infeasible?'47':'48')+' / 48</b><span>วิชาที่จัดได้</span></div><div><b>6</b><span>กลุ่มเรียน</span></div><div><b>'+(S.infeasible?'1':'0')+'</b><span>ข้อขัดแย้ง</span></div></div><div class="row" style="margin-top:12px"><button class="btn s" data-x="Excel">ส่งออก Excel</button><button class="btn s" data-x="PDF">ส่งออก PDF</button>'+T('3.5')+'</div></section>';
+h+='<section class="p"><h2>ตารางสอน'+T('2.2–2.4, 3.4')+'</h2><div class="tabs" role="tablist">'+[['student','นักเรียน'],['teacher','ครู'],['room','ห้อง'],['course','รายวิชา']].map(a=>'<button role="tab" data-vt="'+a[0]+'" aria-selected="'+(t==a[0])+'">'+a[1]+'</button>').join('')+'</div><div class="row" style="margin-bottom:10px">';
+if(t=='student')h+='<div><label>ชั้นปี</label><select id="sy">'+[1,2,3].map(y=>'<option value="'+y+'"'+(S.vy==y?' selected':'')+'>ปี '+y+'</option>').join('')+'</select></div><div><label>กลุ่ม</label><select id="sg">'+[1,2].map(g=>'<option value="'+g+'"'+(S.vg==g?' selected':'')+'>กลุ่ม '+g+'</option>').join('')+'</select></div>';
+else h+='<div><label>เลือก'+{teacher:'ครู',room:'ห้อง',course:'รายวิชา'}[t]+'</label><select id="se">'+opts(t).map(o=>'<option'+(S.ve==o?' selected':'')+'>'+o+'</option>').join('')+'</select></div>';
+h+='</div>'+(r.n?r.html:'<p style="color:var(--mu)">ยังไม่มีตารางสำหรับรายการนี้</p>')+'<p style="font-size:13px;color:var(--mu)">'+(t=='teacher'?'คาบสอนรวม '+r.periods+' คาบ ยังเทียบเกณฑ์ตำแหน่งไม่ได้ เพราะไม่ได้ระบุตำแหน่งครูในข้อมูลจำลอง · ':'')+'ฟ้า = ทฤษฎี ส้ม = ปฏิบัติ เทา = พัก</p></section>';return h}
+function draw(){stepsNav();$('#v').innerHTML=[v1,v2,v3][S.step-1]();bind();save()}
+function bind(){const q=(s,f)=>{const e=document.querySelector(s);if(e)e.onclick=f};
+const load=()=>{S.extracted=false;draw();if(!S.aiDown)setTimeout(()=>{if(S.file&&!S.aiDown){S.extracted=true;draw()}},1200)};
+q('#smp',()=>{S.file='ตารางสอน_ปวส_ตัวอย่าง.xlsx';load()});
+const f=$('#f');if(f)f.onchange=e=>{if(e.target.files[0]){S.file=e.target.files[0].name;load()}};
+q('#rst',()=>{S.file=null;S.extracted=false;S.confirmed=false;S.done=false;draw()});
+q('#ai',()=>{S.aiDown=!S.aiDown;if(S.aiDown&&S.file&&!S.extracted){draw()}else if(!S.aiDown&&S.file&&!S.extracted){load()}else draw()});
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;draw()});
+q('#cf',()=>{S.confirmed=true;S.step=2;draw()});
+const inf=$('#inf');if(inf)inf.onchange=e=>{S.infeasible=e.target.checked};
+q('#go',run);q('#to3',()=>{S.step=3;draw()});
+document.querySelectorAll('[data-vt]').forEach(b=>b.onclick=()=>{S.vt=b.dataset.vt;S.ve='';draw()});
+document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>toast('ส่งออก '+b.dataset.x+': ยังไม่ได้เชื่อมกับ API ในต้นแบบนี้'));
+[['#sy','vy'],['#sg','vg'],['#se','ve']].forEach(a=>{const e=$(a[0]);if(e)e.onchange=()=>{S[a[1]]=a[1]=='ve'?e.value:+e.value;draw()}})}
+function run(){S.running=true;S.done=false;S.prog=0;S.series=fit(30);S.infeasible=$('#inf').checked;const full=S.series;S.series=[];draw();
+const msgs=['อ่านข้อมูลที่ยืนยันแล้ว','สร้างตารางเริ่มต้น','ปรับลดข้อขัดแย้ง','ตรวจเงื่อนไข 12 ข้อ'];let i=0;
+const id=setInterval(()=>{i++;S.prog=Math.round(i/30*100);S.series=full.slice(0,i);const pb=$('#pb');if(pb)pb.style.width=S.prog+'%';const lg=$('#lg');if(lg)lg.innerHTML=msgs.slice(0,Math.min(4,Math.ceil(i/8))).join('<br>');const ch=$('#ch');if(ch)ch.innerHTML=chart();
+if(i>=30){clearInterval(id);S.running=false;S.done=true;draw()}},120)}
+$('#steps').onclick=e=>{const b=e.target.closest('button');if(b&&!b.disabled){S.step=+b.dataset.s;draw()}};
+$('#tg').onchange=e=>document.body.classList.toggle('notags',!e.target.checked);
+draw();
+</script></body></html>

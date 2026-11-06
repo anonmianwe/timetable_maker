@@ -1,0 +1,1351 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Slotline System Design</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: deep-green nav rail + frosted glass panels on a mint field; the architecture diagram and pipeline carry the motion */
+:root{
+  --sans:'IBM Plex Sans Thai','Noto Sans Thai',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --bg:#EAF2EC;--blob1:rgba(123,211,167,.42);--blob2:rgba(190,222,206,.75);
+  --ink:#0E2419;--ink-2:#41574A;--ink-3:#66796D;
+  --glass:rgba(255,255,255,.6);--glass-hi:rgba(255,255,255,.88);--line:rgba(15,81,50,.15);--line-2:rgba(15,81,50,.34);
+  --accent:#0F5132;--accent-2:#1E7A4E;--accent-soft:rgba(30,122,78,.12);--on-accent:#F2FAF5;
+  --amber:#9A6414;--amber-soft:rgba(217,154,30,.2);--red:#B5382E;--red-soft:rgba(192,68,58,.14);
+  --side:#0B3324;--side-2:#12503A;--side-ink:#E3F0E8;--side-ink-2:#8DB4A0;--side-hi:rgba(255,255,255,.12);
+  --node:rgba(255,255,255,.82);--flow:#1E7A4E;--hot:#C98A12;--code:rgba(15,81,50,.07);
+  --shadow:0 1px 0 rgba(255,255,255,.8) inset,0 14px 34px -18px rgba(8,48,30,.45);
+  --glow:0 0 0 1px rgba(30,122,78,.38),0 12px 30px -12px rgba(30,122,78,.5);
+  --ease:cubic-bezier(.2,.7,.2,1);--t-fast:.18s;--t-med:.32s;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#07140E;--blob1:rgba(46,120,84,.4);--blob2:rgba(20,70,52,.55);
+  --ink:#E3F0E8;--ink-2:#A6BEB0;--ink-3:#7E9A8A;
+  --glass:rgba(18,46,34,.58);--glass-hi:rgba(26,64,47,.85);--line:rgba(150,215,180,.16);--line-2:rgba(150,215,180,.4);
+  --accent:#7BD3A7;--accent-2:#4FB784;--accent-soft:rgba(123,211,167,.14);--on-accent:#05190F;
+  --amber:#E8B23E;--amber-soft:rgba(232,178,62,.17);--red:#F08A7E;--red-soft:rgba(240,138,126,.17);
+  --side:#051A11;--side-2:#0C2D20;--side-hi:rgba(255,255,255,.1);
+  --node:rgba(20,52,38,.82);--flow:#7BD3A7;--hot:#E8B23E;--code:rgba(123,211,167,.08);
+  --shadow:0 1px 0 rgba(255,255,255,.06) inset,0 16px 40px -20px rgba(0,0,0,.7);
+  --glow:0 0 0 1px rgba(123,211,167,.45),0 12px 34px -12px rgba(123,211,167,.4);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#07140E;--blob1:rgba(46,120,84,.4);--blob2:rgba(20,70,52,.55);
+  --ink:#E3F0E8;--ink-2:#A6BEB0;--ink-3:#7E9A8A;
+  --glass:rgba(18,46,34,.58);--glass-hi:rgba(26,64,47,.85);--line:rgba(150,215,180,.16);--line-2:rgba(150,215,180,.4);
+  --accent:#7BD3A7;--accent-2:#4FB784;--accent-soft:rgba(123,211,167,.14);--on-accent:#05190F;
+  --amber:#E8B23E;--amber-soft:rgba(232,178,62,.17);--red:#F08A7E;--red-soft:rgba(240,138,126,.17);
+  --side:#051A11;--side-2:#0C2D20;--side-hi:rgba(255,255,255,.1);
+  --node:rgba(20,52,38,.82);--flow:#7BD3A7;--hot:#E8B23E;--code:rgba(123,211,167,.08);
+  --shadow:0 1px 0 rgba(255,255,255,.06) inset,0 16px 40px -20px rgba(0,0,0,.7);
+  --glow:0 0 0 1px rgba(123,211,167,.45),0 12px 34px -12px rgba(123,211,167,.4);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--sans);font-size:15px;line-height:1.65;color:var(--ink);
+  background:radial-gradient(900px 520px at 88% -8%,var(--blob1),transparent 62%),radial-gradient(760px 520px at -6% 104%,var(--blob2),transparent 60%),var(--bg);background-attachment:fixed}
+h1,h2,h3,h4,p{margin:0}
+a{color:var(--accent-2)}
+:focus-visible{outline:2px solid var(--accent-2);outline-offset:2px;border-radius:6px}
+.app{display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;max-width:1500px;margin:0 auto;align-items:start;
+  padding-block:18px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.rail{position:sticky;top:18px;border-radius:22px;padding:18px 14px;color:var(--side-ink);display:flex;flex-direction:column;gap:18px;
+  background:linear-gradient(170deg,var(--side-2),var(--side));box-shadow:var(--shadow)}
+.brand{display:flex;gap:11px;align-items:center;padding:2px 6px}
+.brand b{display:block;font-size:19px;font-weight:600;line-height:1.2}
+.brand span{font-size:11.5px;color:var(--side-ink-2);line-height:1.4}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav a{display:flex;gap:11px;align-items:center;padding:9px 11px;border-radius:12px;color:var(--side-ink-2);text-decoration:none;font-size:14px;font-weight:500;
+  transition:background var(--t-fast),color var(--t-fast),transform var(--t-fast) var(--ease)}
+.nav a:hover{background:var(--side-hi);color:var(--side-ink);transform:translateX(2px)}
+.nav a.on{background:var(--side-hi);color:#B7F0D1}
+.nav svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.rail small{display:flex;gap:8px;align-items:center;padding:0 8px;color:var(--side-ink-2);font-size:11.5px;line-height:1.5}
+.dot{width:8px;height:8px;border-radius:50%;background:#7BD3A7;flex:none;animation:beat 2.4s ease-in-out infinite}
+@keyframes beat{0%,100%{box-shadow:0 0 0 0 rgba(123,211,167,.55)}60%{box-shadow:0 0 0 7px rgba(123,211,167,0)}}
+.main{min-width:0;display:flex;flex-direction:column;gap:18px}
+.view[hidden]{display:none}
+.view{display:flex;flex-direction:column;gap:18px;min-width:0}
+.view:not([hidden])>*{animation:rise .42s var(--ease) both}
+.view:not([hidden])>*:nth-child(2){animation-delay:.05s}.view:not([hidden])>*:nth-child(3){animation-delay:.1s}
+.view:not([hidden])>*:nth-child(4){animation-delay:.15s}.view:not([hidden])>*:nth-child(n+5){animation-delay:.2s}
+@keyframes rise{from{opacity:.001;transform:translateY(10px)}to{opacity:1;transform:none}}
+.glass{background:var(--glass);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);
+  border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+.pad{padding:20px 22px}
+.vh h2{font-size:clamp(24px,3vw,32px);font-weight:600;line-height:1.35;text-wrap:balance}
+.vh p{color:var(--ink-2);max-width:78ch;margin-top:6px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-2)}
+h1{font-size:clamp(38px,5.4vw,64px);font-weight:600;line-height:1.25;letter-spacing:-.01em}
+.lead{font-size:17px;color:var(--ink-2);max-width:68ch;margin-top:10px}
+.sec{font-size:13px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:6px 2px 0}
+.grid{display:grid;gap:14px;min-width:0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))}
+.card{padding:16px 18px;min-width:0;transition:transform var(--t-med) var(--ease),box-shadow var(--t-med),border-color var(--t-med)}
+.card:hover{transform:translateY(-2px);box-shadow:var(--glow);border-color:var(--line-2)}
+.card .k{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-2)}
+.card .t{font-size:16px;font-weight:600;line-height:1.4;margin:3px 0 5px;text-wrap:balance}
+.card .p{font-size:13.5px;color:var(--ink-2);line-height:1.65}
+.card .m{font-size:12.5px;color:var(--ink-3);margin-top:7px;line-height:1.6}
+.pill{display:inline-block;font-size:11.5px;font-weight:500;padding:2px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap;line-height:1.6}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}.pill.bad{background:var(--red-soft);color:var(--red)}
+.pill.mute{background:var(--code);color:var(--ink-3)}.pill.solid{background:var(--accent);color:var(--on-accent)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.btn{font:inherit;font-size:13.5px;font-weight:600;padding:8px 16px;border-radius:12px;border:1px solid var(--line-2);background:var(--glass-hi);color:var(--ink);cursor:pointer;
+  transition:transform var(--t-fast) var(--ease),box-shadow var(--t-fast),background var(--t-fast)}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--glow)}.btn:active{transform:none}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.btn[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.btn:disabled{opacity:.45;cursor:default;transform:none;box-shadow:none}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);text-align:left;font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+tr.row{cursor:pointer;transition:background var(--t-fast)}tr.row:hover{background:var(--accent-soft)}
+tr.open>td{background:var(--accent-soft)}
+td.det{padding:0}
+.mono{font-family:var(--mono);font-size:12.5px}
+pre.code{margin:0;padding:14px 16px;border-radius:12px;background:var(--code);border:1px solid var(--line);font-family:var(--mono);font-size:12.2px;line-height:1.65;overflow:auto;max-height:420px;white-space:pre;tab-size:2}
+.rubric{display:flex;flex-direction:column;gap:11px}
+.rb{display:grid;grid-template-columns:minmax(150px,230px) 1fr 52px;gap:12px;align-items:center;cursor:default}
+.rb .bar{height:12px;border-radius:99px;background:var(--code);overflow:hidden}
+.rb .bar i{display:block;height:100%;width:var(--w);border-radius:99px;background:linear-gradient(90deg,var(--accent-2),var(--accent));transform-origin:left;animation:grow 1s var(--ease) both}
+@keyframes grow{from{transform:scaleX(.02)}to{transform:scaleX(1)}}
+.rb b{font-family:var(--mono);font-size:13px;text-align:right}
+.rb:hover .bar i{filter:brightness(1.15)}
+@media(max-width:620px){.rb{grid-template-columns:1fr 44px}.rb .bar{grid-column:1/-1;grid-row:2}}
+.diagram{overflow-x:auto;padding:10px}
+.diagram svg{display:block;min-width:900px;width:100%;height:auto}
+svg text{font-family:var(--sans)}
+.nd{cursor:pointer;transition:opacity var(--t-med)}
+.nd rect{fill:var(--node);stroke:var(--line-2);stroke-width:1;transition:stroke var(--t-fast),fill var(--t-fast)}
+.nd:hover rect,.nd:focus-visible rect{stroke:var(--accent-2);stroke-width:1.8}
+.nd.pin rect{stroke:var(--hot);stroke-width:2}
+.nd.dim{opacity:.26}
+.nd .t{font-size:12.5px;font-weight:600;fill:var(--ink)}.nd .s{font-size:10.2px;fill:var(--ink-3)}
+.k-core rect{fill:none;stroke:var(--accent-2);stroke-dasharray:5 5}
+.k-mod rect{fill:var(--accent-soft);stroke:var(--accent-2)}
+.k-async rect{fill:var(--glass-hi)}.k-data rect{stroke:var(--accent);stroke-width:1.4}
+.k-ext rect{stroke-dasharray:3 3}
+.col{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;fill:var(--ink-3)}
+.edge .line{fill:none;stroke:var(--ink-3);stroke-width:1.6;stroke-dasharray:4 7;animation:flow 1.1s linear infinite;transition:opacity var(--t-med)}
+@keyframes flow{to{stroke-dashoffset:-11}}
+.edge{transition:opacity var(--t-med)}
+.edge[data-s="dim"]{opacity:.12}.edge[data-s="dim"] .pk{display:none}
+.edge[data-s="hot"] .line{stroke:var(--hot);stroke-width:2.8;stroke-dasharray:6 6}
+.pk{fill:var(--flow);filter:drop-shadow(0 0 4px var(--flow))}.edge[data-s="hot"] .pk{fill:var(--hot);filter:drop-shadow(0 0 5px var(--hot))}
+.elab{font-family:var(--mono);font-size:9.5px;fill:var(--ink-3)}
+.panel{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media(max-width:900px){.panel{grid-template-columns:minmax(0,1fr)}}
+ol.steps{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:8px;padding:7px 10px;border-radius:10px;font-size:13.5px;color:var(--ink-2);transition:background var(--t-med),color var(--t-med)}
+ol.steps li::before{content:counter(s);font-family:var(--mono);font-size:12px;color:var(--ink-3);padding-top:1px}
+ol.steps li.on{background:var(--amber-soft);color:var(--ink)}
+ol.steps li.done{color:var(--ink-3)}
+.stage{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;position:relative}
+.stg{padding:13px 14px;border-radius:14px;border:1px solid var(--line);background:var(--glass-hi);min-width:0;position:relative;transition:transform var(--t-med) var(--ease),border-color var(--t-med),box-shadow var(--t-med)}
+.stg:hover{transform:translateY(-3px);border-color:var(--line-2);box-shadow:var(--glow)}
+.stg[data-st="run"]{border-color:var(--hot);box-shadow:0 0 0 3px var(--amber-soft);animation:pulse 1.2s ease-in-out infinite}
+.stg[data-st="ok"]{border-color:var(--accent-2)}
+.stg[data-st="bad"]{border-color:var(--red)}
+.stg .n{font-family:var(--mono);font-size:11px;color:var(--accent-2)}
+.stg .t{font-size:14px;font-weight:600;line-height:1.4;margin:2px 0 4px}
+.stg .p{font-size:12.5px;color:var(--ink-2);line-height:1.55}
+.stg .a{font-family:var(--mono);font-size:10.8px;color:var(--ink-3);margin-top:6px;line-height:1.5}
+@keyframes pulse{50%{box-shadow:0 0 0 7px var(--amber-soft)}}
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--mono);font-size:10px;fill:var(--ink-3)}
+.chart .ln{fill:none;stroke:var(--accent-2);stroke-width:2.2;stroke-linejoin:round}
+.chart .gr{stroke:var(--line);stroke-width:1}
+.check{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;padding:8px 4px;border-bottom:1px dotted var(--line);cursor:pointer;font-size:13.5px;color:var(--ink-2)}
+.check input{margin-top:4px;accent-color:var(--accent-2);width:16px;height:16px}
+.meter{height:10px;border-radius:99px;background:var(--code);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-2),var(--accent));border-radius:99px;transition:width .5s var(--ease)}
+.az{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px}
+.az .box{padding:12px 14px;border-radius:14px;border:1px dashed var(--line-2);display:flex;flex-direction:column;gap:6px}
+.rep{position:relative;height:22px;margin:14px 0 4px;border-radius:99px;background:var(--code);overflow:hidden}
+.rep i{position:absolute;top:8px;width:6px;height:6px;border-radius:50%;background:var(--flow);box-shadow:0 0 8px var(--flow);animation:travel 3.2s linear infinite}
+@keyframes travel{from{left:0;opacity:0}12%{opacity:1}88%{opacity:1}to{left:100%;opacity:0}}
+.pipe{display:flex;flex-wrap:wrap;gap:8px}
+.pipe li{list-style:none;padding:8px 12px;border-radius:12px;border:1px solid var(--line);font-size:13px;background:var(--glass-hi);animation:sweep 8s linear infinite;animation-delay:calc(var(--i)*1s)}
+@keyframes sweep{0%,10%{border-color:var(--accent-2);background:var(--accent-soft)}14%,100%{border-color:var(--line);background:var(--glass-hi)}}
+.ent{padding:12px 14px;transition:opacity var(--t-med),transform var(--t-med) var(--ease),box-shadow var(--t-med),border-color var(--t-med)}
+.ent.dim{opacity:.28}.ent.rel{border-color:var(--hot);box-shadow:0 0 0 2px var(--amber-soft)}
+.ent h4{font-family:var(--mono);font-size:13.5px;font-weight:600}
+.ent .f{display:flex;gap:8px;justify-content:space-between;font-size:11.8px;padding:2px 0;border-bottom:1px dotted var(--line)}
+.ent .f span{font-family:var(--mono)}.ent .f em{font-style:normal;color:var(--ink-3);white-space:nowrap}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.copy-ok{font-size:12.5px;color:var(--accent-2)}
+@media(max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;padding:12px;gap:10px;border-radius:18px}
+  .nav{flex-direction:row;overflow-x:auto;padding-bottom:2px}.nav a{white-space:nowrap}.rail small{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .pk{display:none}
+}
+.hero-flow{width:100%;height:auto;display:block;margin-top:18px}
+.hero-flow .bl{stroke:var(--line-2);stroke-width:2;stroke-dasharray:5 6}
+.hero-flow rect{fill:var(--glass-hi);stroke:var(--line-2);stroke-width:1}
+.hero-flow .t{fill:var(--ink);font-size:11.5px;font-weight:600;font-family:inherit}
+.hero-flow .s{fill:var(--ink-3);font-size:10.5px;font-family:var(--mono)}
+.hero-flow .pk{fill:var(--flow)}
+.fz{position:relative;height:10px;border-radius:99px;background:var(--code);margin:2px 0 6px}
+.fz .zone{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--accent-soft);border:1px solid var(--accent-2)}
+.fz .mk{position:absolute;top:-4px;width:4px;height:18px;border-radius:2px;background:var(--hot);transform:translateX(-2px)}
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" width="36" height="36" aria-hidden="true"><rect width="32" height="32" rx="10" fill="#7BD3A7"/><rect x="7" y="8" width="18" height="3.2" rx="1.6" fill="#0B3324"/><rect x="7" y="14.4" width="11" height="3.2" rx="1.6" fill="#0B3324"/><rect x="7" y="20.8" width="15" height="3.2" rx="1.6" fill="#0B3324"/></svg>
+      <div><b>Slotline</b><span>ระบบจัดตารางสอนอัตโนมัติ</span></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="มุมมองของเอกสาร">
+      <a href="#overview" data-go="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>ภาพรวม</a>
+      <a href="#pages" data-go="pages"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>6 หน้าที่ตรวจ</a>
+      <a href="#architecture" data-go="architecture"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>สถาปัตยกรรม</a>
+      <a href="#pipeline" data-go="pipeline"><svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></svg>Pipeline และ Solver</a>
+      <a href="#rules" data-go="rules"><svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h16M4 18h8"/><circle cx="18" cy="6" r="2"/><circle cx="14" cy="18" r="2"/></svg>กฎและเงื่อนไข</a>
+      <a href="#data" data-go="data"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>ข้อมูลและสัญญา</a>
+      <a href="#stack" data-go="stack"><svg viewBox="0 0 24 24"><path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/></svg>Tech Stack</a>
+      <a href="#ops" data-go="ops"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg>วันแข่งและการใช้งาน</a>
+      <a href="#decisions" data-go="decisions"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3.5 3.5 0 006 0L5 7zM19 7l-3 7a3.5 3.5 0 006 0l-3-7z"/></svg>การตัดสินใจและแผน</a>
+      <a href="#ai-rules" data-go="ai-rules"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>กติกาสำหรับ AI</a>
+    </nav>
+    <small><span class="dot"></span><span>ร่างข้อเสนอ v1 · 5 พ.ย. 2569<br>ตัวเลขทุกตัวเป็นเป้าหมายออกแบบ ยกเว้นที่ระบุว่านับจากไฟล์ตัวอย่าง</span></small>
+  </aside>
+  <main class="main" id="main">
+    <section class="view" data-view="overview" hidden></section>
+    <section class="view" data-view="pages" hidden></section>
+    <section class="view" data-view="architecture" hidden></section>
+    <section class="view" data-view="pipeline" hidden></section>
+    <section class="view" data-view="rules" hidden></section>
+    <section class="view" data-view="data" hidden></section>
+    <section class="view" data-view="stack" hidden></section>
+    <section class="view" data-view="ops" hidden></section>
+    <section class="view" data-view="decisions" hidden></section>
+    <section class="view" data-view="ai-rules" hidden></section>
+  </main>
+</div>
+<script type="text/plain" id="rules-md"># กติกาสำหรับ AI ที่สร้างเว็บไซต์ Slotline (ระบบจัดตารางสอนอัตโนมัติ)
+
+ไฟล์นี้เขียนให้ AI โมเดลเล็กอ่าน ทำตามทุกข้อ ไม่ตีความเอง
+ถ้าสองข้อขัดกัน ให้ยึดข้อที่อยู่หมวดเลขน้อยกว่า
+คำสำคัญ: MUST = ต้องทำ · NEVER = ห้ามทำเด็ดขาด · STOP = หยุดทำงานแล้วถามคน
+
+## 0. วิธีใช้ไฟล์นี้
+
+0.1 MUST อ่านทั้งไฟล์ก่อนเริ่มทุกงาน
+0.2 MUST ทำทีละงาน ทีละไฟล์ ไม่ทำหลายอย่างพร้อมกัน
+0.3 MUST ส่งไฟล์ที่แก้ทั้งไฟล์ ไม่ส่งเฉพาะชิ้นส่วน
+0.4 ถ้าไม่แน่ใจ ให้ STOP ไม่ต้องเดา
+
+## 1. ข้อห้ามเด็ดขาด (NEVER)
+
+N1 NEVER ฝังเงื่อนไขการจัดตารางในโค้ด ได้แก่ เลขคาบ วัน ชื่อห้อง ชื่อครู ช่วงชั่วโมงสอน
+   ค่าเหล่านี้มาจาก rules.json หรือฐานข้อมูลเท่านั้น
+   ผิด: `if (period > 9)` ถูก: `if (period > rules.maxPeriodByLevel[level])`
+N2 NEVER แต่งข้อมูลเอง (วิชา ครู ห้อง ตาราง) ถ้าไม่มีข้อมูล ให้แสดงหน้าว่างเป็นภาษาไทยแล้ว STOP
+N3 NEVER แสดงตารางที่ status ไม่ใช่ "verified" ในหน้านักเรียนและครู
+   หน้า admin แสดงได้ แต่ต้องมีป้าย "ยังไม่ผ่านการตรวจ"
+N4 NEVER ตรวจความขัดแย้งในโค้ดหน้าเว็บ ให้เรียก GET /api/runs/:id/verify เท่านั้น
+N5 NEVER แก้ฟิลด์ใน packages/contract โดยไม่เพิ่ม schemaVersion และไม่เพิ่มเทสต์
+N6 NEVER โหลดไฟล์จากอินเทอร์เน็ตตอนระบบทำงาน (CDN ฟอนต์ออนไลน์ รูป API ภายนอก) ยกเว้นผู้ให้บริการ AI ภาษาที่เปิดใช้เองตาม N24
+   ระบบต้องทำงานได้เมื่อไม่มีอินเทอร์เน็ต ฟอนต์ใช้ @fontsource ที่ติดตั้งในโปรเจกต์
+N7 NEVER เก็บรหัสผ่านเป็นข้อความเปล่า, ใส่ secret ในโค้ด, หรือ commit ไฟล์ .env
+N8 NEVER ต่อสตริงเป็น SQL ใช้ parameter ($1, $2) หรือ query builder เท่านั้น
+N9 NEVER ใช้ `any`, `@ts-ignore`, `eslint-disable`, `as unknown as` เพื่อซ่อนปัญหา
+N10 NEVER กลืน error ด้วย catch เปล่า ต้องแสดงข้อความไทยพร้อมรหัส เช่น E-IMP-001
+N11 NEVER ทิ้ง TODO, "...", lorem ipsum, ฟังก์ชันว่าง, หรือข้อมูลปลอมในไฟล์ที่ส่งมอบ
+N12 NEVER บอกว่า "เสร็จแล้ว" ก่อนรันคำสั่งตรวจในหมวด 9 และแปะผลจริงของคำสั่ง
+N13 NEVER ใช้ Math.random() ใน packages/solver ให้ใช้ตัวสุ่มที่รับ seed และบันทึก seed ในผลทุกครั้ง
+N14 NEVER แสดงตัวเลขหรือกราฟที่ไม่ได้มาจากระบบจริงโดยไม่ติดป้าย "ตัวอย่าง"
+   แถบ progress ต้องใช้ค่าจริงจากเซิร์ฟเวอร์ ห้ามทำให้วิ่งหลอก
+N15 NEVER ลบ เปลี่ยนชื่อ หรือย้ายไฟล์ที่ไม่ได้อยู่ในงานที่สั่ง
+N16 NEVER เพิ่มไลบรารี เปลี่ยนเวอร์ชัน หรือเปลี่ยน stack โดยไม่ถาม (STOP)
+N17 NEVER ตัดข้อความไทยด้วย ellipsis ในช่องตารางเวลา ให้ขึ้นบรรทัดใหม่แทน
+N18 NEVER ใส่ animation ที่ไม่รองรับ prefers-reduced-motion
+N19 NEVER ให้ packages/verifier import จาก packages/solver (ตัวตรวจต้องเป็นอิสระ)
+N20 NEVER ให้ packages/solver import express หรือแตะฐานข้อมูล (solver เป็นฟังก์ชันบริสุทธิ์)
+
+N21 NEVER เปลี่ยนชื่อแผ่นงาน หัวคอลัมน์ ลำดับคอลัมน์ หรือค่าในไฟล์ส่งออก Excel (หมวด 4 ข้อ C14)
+   กรรมการตรวจไฟล์นี้ด้วยโปรแกรม ผิดตัวอักษรเดียวถือว่าไม่ผ่าน
+N22 NEVER ให้การจัดตารางค้าง ต้องมีเพดานงาน (จำนวนรอบ) และเช็กการยกเลิกทุก N รอบ
+   ถ้าจัดไม่ได้หรือหมดเพดาน MUST ตอบสถานะและเหตุผล ห้ามเงียบ
+N23 NEVER ให้ผลต่าง seed เดียวกัน ข้อมูลเดียวกัน ค่าตั้งค่าเดียวกัน
+   ห้ามใช้เวลาจริง (Date.now) เป็นตัวหยุดหรือตัวตัดสินใจของ solver ให้ใช้จำนวนรอบเท่านั้น
+N24 NEVER ทำให้ระบบต้องพึ่ง AI ภาษา (LLM) หรืออินเทอร์เน็ตเพื่อทำงานหลัก
+   การอ่านคำขอพิเศษต้องมีตัวอ่านแบบกฎในเครื่อง และฟอร์มกรอกเอง เป็นทางสำรองเสมอ
+   ผลจาก AI ทุกครั้งต้องผ่าน Zod และให้ผู้ใช้กดยืนยันก่อนใช้
+
+## 2. ข้อเท็จจริงของโครงการ
+
+F1 โจทย์: ระบบจัดตารางสอนอัตโนมัติ ระดับ ปวส. กรรมการให้ไฟล์ Excel 2 ชุดโครงสร้างเดียวกัน
+   ชุดทดลอง 4 กลุ่มเรียน (ตรวจด้วยตา) และชุดหลัก 12 กลุ่มเรียน (ลองเมื่อเว็บทำงานแล้ว)
+   ชุดใหญ่ทดสอบประมาณ 600 รายการสอน ข้อมูลวันแข่งอาจต่างจากตัวอย่าง
+F2 ไฟล์โจทย์มี 7 แผ่นงาน: ครู (รหัส ชื่อ แผนก คาบสูงสุดต่อวัน), เวลาที่ครูไม่สะดวก,
+   ห้อง (ประเภท ความจุ), กลุ่มเรียน (จำนวนนักเรียน), รายวิชา (ท-ป-น และห้องปฏิบัติ),
+   คำขอพิเศษภาษาไทย, รายการสอน (ทุกแถวต้องถูกจัดลงตาราง)
+F3 รายการสอนหนึ่งรายการแตกเป็นสูงสุด 2 ครั้งที่ต้องจัด: ทฤษฎี (ท คาบ ในห้องบรรยาย)
+   และปฏิบัติ (ป คาบติดกันในห้องปฏิบัติของวิชา) ถ้า ป = 0 ไม่ต้องจัดปฏิบัติ
+   ตัวอย่าง ท-ป-น 1-4-3 = ทฤษฎี 1 คาบ + ปฏิบัติ 4 คาบติดกันในห้องคอมพิวเตอร์
+F4 เรียนรวมหลายกลุ่ม: ทุกกลุ่มต้องว่างพร้อมกัน และห้องต้องจุนักเรียนรวมทุกกลุ่ม
+F5 ครู กลุ่ม และห้อง ต้องว่างในทุกครั้งที่จัด และครูต้องไม่เกินคาบสูงสุดต่อวัน
+F6 สัปดาห์ = จันทร์–ศุกร์ เก็บเป็น day 1–5 คาบเริ่มที่ 1 ค่าตั้งต้นคาบละ 60 นาที คาบ 1 เริ่ม 08:30
+   (ข้อสมมติ รอกรรมการยืนยัน) กฎใน "แนวทางปฏิบัติ" ฉบับ ปวช. (เช่น ปวช.1 ไม่เกินคาบ 9
+   พักกลางวัน 1 ชม. กิจกรรมพฤหัสคาบ 6–7 ภาระครู 24–38 ชม.) ใส่เป็นกฎใน rules.json
+   ทีละข้อ และตรวจกับไฟล์จริงว่าใช้กับข้อมูลชุดนี้หรือไม่ ห้ามเปิดใช้โดยไม่ยืนยัน
+F7 ผู้ใช้มี 3 บทบาท: admin (กรรมการ/ผู้จัดตาราง), teacher, student
+F8 เว็บมี 6 หน้าให้กรรมการกดตรวจเอง (หมวด 6) หน้าจัดตารางคะแนนสูงสุด 25 จาก 83
+F9 คำขอพิเศษมี 3 แบบ: ต้องทำตาม (hard) · ทำถ้าทำได้ (soft) · ไม่ต้องทำอะไรเพิ่ม
+   (จริงอยู่แล้ว หรืออ้างถึงครูที่ไม่มีในข้อมูล) เพิ่มคำขอใหม่ได้โดยไม่แก้โค้ด
+
+### Stack (ห้ามเปลี่ยน)
+
+| ส่วน | เครื่องมือ |
+|---|---|
+| หน้าเว็บ | React 18, TypeScript strict, Vite, React Router, TanStack Query, Zod |
+| ตกแต่ง | CSS Modules + CSS variables (design tokens) ไม่ใช้ Tailwind |
+| Motion | ไลบรารี `motion` (React) สำหรับ layout/enter/exit, CSS สำหรับ hover และ micro-interaction |
+| ลากวาง | dnd-kit |
+| กราฟ | SVG เขียนเองด้วย d3-scale และ d3-shape |
+| API | Node 22 LTS, Express 5, JavaScript ESM + JSDoc (ตรวจชนิดด้วย `tsc --checkJs`), Zod, pino |
+| ความปลอดภัย/อัปโหลด/ฐานข้อมูล | argon2 (แฮชรหัสผ่าน), jose (JWT), multer (อัปโหลด), pg (PostgreSQL) |
+| Solver | JavaScript ล้วน รันใน worker_threads |
+| ฐานข้อมูล | PostgreSQL 16 ผ่าน `pg` (query แบบ parameter) |
+| Excel | ExcelJS (อ่านและเขียน) |
+| PDF | Puppeteer พิมพ์จากหน้า HTML+CSS ใน templates/print |
+| ทดสอบ | Vitest, Testing Library, supertest, Playwright |
+| รัน | docker compose up |
+
+### โครงโฟลเดอร์ (ห้ามสร้างนอกโครงนี้)
+
+```
+slotline/
+  apps/web/            React + TypeScript
+  apps/api/            Express 5
+  packages/contract/   Zod schema, JSON Schema, ไฟล์ตัวอย่าง
+  packages/rules/      ฟังก์ชัน check ของแต่ละกฎ
+  packages/solver/     อัลกอริทึมจัดตาราง
+  packages/verifier/   ตัวตรวจอิสระ
+  templates/print/     HTML + CSS สำหรับ PDF
+  docker-compose.yml
+```
+
+## 3. ลำดับทำงานทุกครั้ง
+
+W1 READ อ่านงานที่สั่งและไฟล์ที่เกี่ยวข้อง ห้ามอ่านทั้งโปรเจกต์
+W2 PLAN เขียนแผนไม่เกิน 5 บรรทัด ระบุชื่อไฟล์ที่จะแก้ทุกไฟล์
+W3 ONE แก้ครั้งละเรื่องเดียว ไม่เกิน 3 ไฟล์ต่อรอบ
+W4 TEST เขียนเทสต์ก่อนหรือพร้อมโค้ด
+W5 RUN รันคำสั่งตรวจหมวด 9
+W6 REPORT รายงานตามแบบหมวด 11
+W7 ถ้าคำสั่งตรวจล้มเหลว ให้แก้ไม่เกิน 3 รอบ ถ้ายังล้มเหลว STOP พร้อมแปะ error เต็ม
+
+## 4. Data contract (สัญญาข้อมูล)
+
+C1 ข้อมูลเข้าและออกของ solver ใช้รูปแบบใน packages/contract เท่านั้น
+C2 ทุกไฟล์ที่รับเข้าระบบ MUST ผ่าน Zod parse ก่อนใช้ ถ้าไม่ผ่านให้ตอบ 422 พร้อมรายการฟิลด์ที่ผิด
+C3 MUST มีฟิลด์ `schemaVersion` ใน problem.json และ solution.json
+C4 id ทุกตัวเป็น string และห้ามเปลี่ยนค่าหลังสร้าง
+C5 วันใช้เลข 1–5 คาบใช้เลขเริ่มที่ 1 ห้ามเก็บเป็นข้อความ "จันทร์" ในข้อมูล แปลงเป็นข้อความเฉพาะตอนแสดงผล
+C6 รหัสวิชา MUST ถูกทำให้เป็นรูปแบบเดียวก่อนเก็บ: ตัดช่องว่างรอบขีด "20000 - 1101" เป็น "20000-1101"
+C7 ข้อความวัน "พฤหัส" และ "พฤหัสบดี" คือวันเดียวกัน ตัวนำเข้า MUST รองรับทั้งสองแบบ
+C8 ตัวนำเข้า MUST รายงานทุกแถวที่อ่านไม่ได้ ห้ามข้ามเงียบ ๆ
+C9 วิธีตอบข้อผิดพลาด: `{ "code": "E-XXX-000", "message": "ภาษาไทย", "details": [...] }`
+
+C10 นำเข้า Excel ต้องตรวจทุกแผ่นงานในครั้งเดียว แล้วรายงานข้อผิดทั้งหมดพร้อมกัน
+    แต่ละข้อผิดมี: แผ่นงาน, แถว, สิ่งที่ผิด, วิธีแก้ ห้ามหยุดที่ข้อผิดแรก
+C11 ข้อมูลที่ต้องตรวจอย่างน้อย: รหัสซ้ำ, อ้างถึงรหัสที่ไม่มี, ท-ป-น ไม่ใช่ตัวเลข,
+    กลุ่มที่ไม่มีห้องไหนจุพอ, ห้องปฏิบัติที่ไม่มีในแผ่นห้อง, ชั่วโมงรวมที่เกินช่องที่มี
+C12 ข้อมูลยังไม่ถูกใช้จนกว่าผู้ใช้กดปุ่ม "ยืนยันใช้ข้อมูลนี้" (ขั้น preview แยกจากขั้น confirm)
+C13 ระบบมีไฟล์แม่แบบเปล่า 1 ไฟล์ และไฟล์ตัวอย่างอย่างน้อย 3 ขนาด (เล็ก กลาง ใหญ่)
+    ไฟล์ตัวอย่างสร้างด้วยสคริปต์ที่รับ seed ไม่เขียนมือ และต้องผ่านตัวนำเข้าของระบบเอง
+C14 ไฟล์ส่งออก: แผ่นงานชื่อ "ตารางสอน" แถวแรกเป็นหัวคอลัมน์ 6 ช่อง ตามลำดับ:
+    รหัสรายการสอน · ประเภท · วัน · คาบเริ่ม · จำนวนคาบ · รหัสห้อง
+    หนึ่งแถว = หนึ่งครั้งที่จัด (ค่าประเภท: ทฤษฎี หรือ ปฏิบัติ) หนึ่งรายการสอนมี 1 หรือ 2 แถว
+    ตรวจรูปแบบจริงจากไฟล์ตัวอย่างที่กรรมการให้ก่อนเขียนโค้ดส่วนนี้ ถ้ายังไม่มีไฟล์ STOP
+C15 เทสต์ round-trip: ส่งออกแล้วอ่านกลับด้วยตัวตรวจอิสระ ต้องได้ผลตรวจเท่าเดิม
+
+### API (ห้ามเปลี่ยนชื่อเส้นทาง)
+
+| เมธอด | เส้นทาง | หน้าที่ |
+|---|---|---|
+| POST | /api/auth/login, /api/auth/refresh, /api/auth/logout | เข้าสู่ระบบ |
+| GET | /api/templates/blank, /api/samples/:size | ไฟล์แม่แบบเปล่า และตัวอย่าง small, medium, large |
+| POST | /api/import/preview | อ่านและตรวจไฟล์ ได้รายงานข้อผิดทั้งหมด ยังไม่ใช้ข้อมูล |
+| POST | /api/import/:id/confirm | ยืนยันใช้ข้อมูลที่ตรวจผ่านแล้ว |
+| GET, POST, PUT | /api/requests | คำขอพิเศษ: อ่าน เพิ่ม แก้ ยืนยัน |
+| POST | /api/requests/parse | อ่านคำขอภาษาไทยเป็นเงื่อนไข (ตัวอ่านแบบกฎ หรือ AI ถ้าเปิด) |
+| GET, PUT | /api/rules | อ่านและแก้ชุดกฎ |
+| POST | /api/runs | สั่งจัดตาราง รับ seed ถ้าไม่ส่ง เซิร์ฟเวอร์สร้างและบันทึก |
+| POST | /api/runs/:id/cancel | ยกเลิกกลางคัน |
+| GET | /api/runs/:id | สถานะและคะแนน (เวลาที่ใช้ จำนวนที่จัดครบ จำนวนที่ชน) |
+| GET | /api/runs/:id/explain | ลำดับที่จัดวิชา และเหตุผลสั้น ๆ ของแต่ละลำดับ |
+| POST | /api/compare | รันวิธีพื้นฐานกับวิธีของทีมบนข้อมูลและ seed เดียวกัน |
+| GET | /api/runs/:id/summary | ใช้ห้อง % · คาบสอนของครู · คาบว่างของกลุ่ม · ผลคำขอพิเศษ |
+| GET | /api/runs/:id/events | SSE ความคืบหน้าจริง |
+| GET | /api/runs/:id/verify | ผลตรวจ แยกตามกฎ |
+| GET | /api/runs/:id/views/:kind/:key | ตารางแยกตาม group, teacher, room, subject |
+| POST | /api/runs/:id/export | ส่งออก xlsx หรือ pdf |
+
+สถานะของ run มีเพียง: queued, planning, solving, verifying, verified, infeasible, cancelled, failed
+"verified" แปลว่าผ่านตัวตรวจและละเมิดกฎเด็ดขาด (hard) เป็นศูนย์เท่านั้น
+
+## 5. ระบบกฎ (Rule engine)
+
+R1 ทุกกฎมี id รูปแบบ `R-01`, ชนิด `hard` หรือ `soft`, และพารามิเตอร์เป็น JSON
+R2 กฎ hard ละเมิดไม่ได้เลย กฎ soft เป็นคะแนนถ่วงน้ำหนัก ค่าน้ำหนักอยู่ใน rules.json
+R3 การเพิ่มกฎใหม่ MUST ทำตามนี้ครบ: (1) เพิ่มฟังก์ชัน check ใน packages/rules
+   (2) ลงทะเบียนใน registry (3) เทสต์กรณีผ่านหนึ่งข้อ (4) เทสต์กรณีไม่ผ่านหนึ่งข้อ
+   (5) เพิ่มข้อความอธิบายภาษาไทยหนึ่งประโยค
+R4 ห้ามแก้ฟังก์ชัน check ของกฎเดิมเพื่อให้เทสต์ผ่าน ต้องแก้ให้ตรงกับโจทย์
+R5 solver และ verifier เรียกฟังก์ชัน check ตัวเดียวกันจาก packages/rules แต่ verifier ห้ามใช้ข้อมูลภายในของ solver
+R6 ถ้า solver จัดไม่ได้ MUST ตอบ `infeasible` พร้อมรายการสาเหตุ ห้ามส่งตารางที่ผิดกฎ
+R8 seed: seed เดียวกัน ข้อมูลเดียวกัน ค่าตั้งค่าเดียวกัน ต้องได้ตารางเหมือนเดิมทุกแถว
+   เทสต์ด้วยการรัน 3 ครั้งแล้วเทียบ hash ของผล
+R9 solver หยุดด้วยเพดานจำนวนรอบ ไม่ใช่เวลา และตอบ best-so-far พร้อมสถานะเสมอ
+R10 ชุดใหญ่ (~600 รายการ) ต้องเสร็จโดยไม่ค้าง และ progress ต้องขยับด้วยค่าจริง
+R11 คำขอพิเศษแต่ละข้อถูกแปลงเป็น { ครู/กลุ่ม, เงื่อนไข, ระดับ: must|try|noop } และ must = hard
+    try = soft มีน้ำหนัก noop ต้องมีเหตุผล (จริงอยู่แล้ว / ไม่พบครูในข้อมูล) ห้ามทิ้งโดยไม่บอก
+R7 เงื่อนไขใหม่จากกรรมการในวันแข่งต้องเพิ่มได้โดยแก้ rules.json หรือฟอร์มในหน้า admin โดยไม่แก้โค้ด solver
+
+## 6. หน้าจอและ UI
+
+### 6 หน้าที่กรรมการกดตรวจเอง (คะแนนรวม 83)
+
+U1 หน้า 1 นำเข้าข้อมูล (11): อัปโหลด Excel · ดาวน์โหลดแม่แบบเปล่า · ดาวน์โหลดตัวอย่าง 3 ขนาด
+   · สรุปจำนวนที่อ่านได้ · รายงานข้อผิดทั้งหมดในครั้งเดียว (แผ่นงาน แถว สิ่งที่ผิด วิธีแก้)
+   · ปุ่มยืนยันก่อนใช้ข้อมูล · ทดสอบด้วยไฟล์ใหม่และไฟล์ที่จงใจใส่ข้อมูลผิด
+U2 หน้า 2 คำขอพิเศษ (4): แสดงคำขอไทยคู่กับสิ่งที่ระบบเข้าใจ แบ่ง 3 กลุ่ม (ต้องทำตาม ·
+   ทำถ้าทำได้ · ไม่ต้องทำอะไรเพิ่ม) แก้ ยืนยัน เพิ่มเองได้ มีฟอร์มสำรองเมื่อ AI ใช้ไม่ได้
+U3 หน้า 3 จัดตาราง (25 สูงสุด): ปุ่มจัด · แถบความคืบหน้าจริง · ปุ่มยกเลิก · ช่อง seed
+   · ผลตรวจของระบบเอง: จัดครบกี่จากกี่รายการ, ชนกี่จุด (ครู/ห้อง/กลุ่ม), ผิดกฎอื่นกี่จุด,
+   คะแนนโทษรวม, เวลาที่ใช้ · คำอธิบายว่าจัดวิชาไหนก่อนเพราะอะไร
+   · ถ้าจัดไม่ได้ ต้องบอกเหตุผล ห้ามค้าง · ยกเลิกแล้วจัดใหม่ได้ · seed เดิมได้ผลเดิม
+U4 หน้า 4 ดูตาราง (23): 3 มุมมอง (กลุ่ม ครู ห้อง) · ช่องค้นหา · วันเป็นคอลัมน์ คาบเป็นแถว
+   · ช่องบอกชื่อวิชา ทฤษฎี/ปฏิบัติ ห้อง ครู (หรือกลุ่ม) · วิชาซ้อนกันแสดงทั้งคู่
+   · แสดงจำนวนคาบรวมต่อสัปดาห์
+U5 หน้า 5 ผลการใช้ AI (16): ตารางเปรียบเทียบวิธีพื้นฐาน (วางลงช่องแรกที่ว่าง) กับวิธีของทีม
+   บนข้อมูลชุดเดียวกัน อย่างน้อย 3 เรื่อง: จุดที่ชน · คะแนนโทษ · เวลา · อธิบายวิธีของทีม
+   ใช้ AI ตรงไหน ตั้งค่าอะไร · กดซ้ำด้วย seed เดิมได้ผลเดิม · ตัวเลขมาจากการรันจริงเท่านั้น
+U6 หน้า 6 สรุปและส่งออก (4): ใช้ห้องกี่ % · ครูแต่ละคนสอนกี่คาบ · กลุ่มมีคาบว่างกี่คาบ
+   · ผลคำขอพิเศษทีละข้อ (ครบ/บางส่วน/ไม่ได้ พร้อมเหตุผล) · ดาวน์โหลด PDF ตารางพิมพ์
+   · ดาวน์โหลด Excel ตามหมวด 4 ข้อ C14
+U7 ต้องเปิดได้จากลิงก์ออนไลน์ทั้งคอมพิวเตอร์และมือถือ (2) และใช้นำเสนอตอบคำถามได้ (15)
+   ทีมที่ทำครบ 6 หน้าแบบพอใช้ได้คะแนนมากกว่าทำหน้าเดียวสวย: ทำครบก่อน แล้วค่อยปรับทีละหน้า
+   (หน้า "อธิบายอัลกอริทึม" และบทบาท teacher/student เป็นส่วนเสริมหลังครบ 6 หน้า)
+
+### กติกาการวาด
+
+U8 สี ระยะห่าง ขนาดตัวอักษร MUST มาจาก `apps/web/src/styles/tokens.css` ห้ามใส่สี hex ในไฟล์อื่น
+U9 สไตล์: กระจกฝ้า (glass) บนพื้นเขียวเข้ม ใช้ `backdrop-filter` ได้เฉพาะแผงใหญ่ ไม่ใช้ในช่องตาราง
+U10 ทุกหน้าที่โหลดข้อมูลต้องมี 4 สถานะครบ: กำลังโหลด, ว่าง, ผิดพลาด, สำเร็จ
+U11 ป้ายสถานะต้องมีข้อความ ไม่ใช้สีอย่างเดียว: verified, infeasible, failed
+U12 คอมโพเนนต์ `TimetableGrid` MUST ทำตามนี้:
+   (1) แถว = คาบ คอลัมน์ = วัน จันทร์–ศุกร์
+   (2) แถวพักกลางวันมองเห็นชัด ไม่ซ่อน
+   (3) วิชาที่ต่อเนื่องหลายคาบเป็นช่องเดียวที่ผสานกัน
+   (4) ช่องแสดง: รหัสวิชา ชื่อวิชา ห้อง ครู
+   (5) คลิกช่องแล้วเปิดแผงรายละเอียดที่บอกว่าช่องนี้ผ่านกฎข้อไหนบ้าง
+   (6) เป็น `<table>` จริง มี `th scope`
+U13 ปุ่มส่งออกกดได้เฉพาะ run ที่ status เป็น verified (หรือ infeasible ที่ส่งออกรายงานสาเหตุ)
+U14 PDF: A4 แนวนอน หนึ่งตารางต่อหนึ่งหน้า ฝังฟอนต์ไทย ทดสอบว่าสระและวรรณยุกต์ไม่เพี้ยน
+U15 หน้า admin เป็นจอใหญ่ หน้า student ออกแบบมือถือก่อน (กว้าง 390px ต้องไม่เลื่อนแนวนอนทั้งหน้า)
+
+## 7. Motion
+
+M1 Motion ต้องช่วยให้เข้าใจ ไม่ใช้เพื่อประดับ
+M2 อนุญาตเฉพาะรายการนี้:
+   - เข้าหน้า: opacity และ translateY ไม่เกิน 12px นาน 240–320ms
+   - ช่องตารางย้ายตำแหน่งหลังลากวาง: layout animation 300ms
+   - รายการเข้า: stagger ไม่เกิน 40ms ต่อรายการ และไม่เกิน 8 รายการ
+   - ปุ่มและการ์ดตอน hover/focus: ยกไม่เกิน 2px, เปลี่ยนเงาหรือขอบ
+   - แถบความคืบหน้า: เลื่อนตามค่าจริงจาก SSE
+   - ไดอะแกรมสถาปัตยกรรม: จุดข้อมูลวิ่งตามเส้นทาง (หน้าอธิบายระบบเท่านั้น)
+M3 MUST animate เฉพาะ `transform` และ `opacity`
+M4 NEVER animation ที่ทำให้ผู้ใช้รอเกิน 600ms ก่อนกดต่อได้
+M5 NEVER animation วนไม่รู้จบบนหน้าที่แสดงข้อมูลตาราง
+M6 NEVER animate layout เมื่อมีองค์ประกอบเกิน 200 ชิ้น
+M7 ทุก animation ต้องผ่านฟังก์ชันกลาง `useMotionPreset()` ที่เดียว
+M8 เมื่อ `prefers-reduced-motion: reduce` MUST ปิด transform ทั้งหมด เหลือแค่ opacity หรือไม่มีเลย
+M9 ค่าเวลาและ easing อยู่ใน tokens.css ห้ามเขียนตัวเลขในคอมโพเนนต์
+
+## 8. ภาษาไทยและการเข้าถึง
+
+T1 ข้อความในหน้าจอทั้งหมดอยู่ในไฟล์ `apps/web/src/i18n/th.ts` ห้ามพิมพ์ข้อความไทยในคอมโพเนนต์
+T2 ฟอนต์: IBM Plex Sans Thai หรือ Noto Sans Thai จาก @fontsource เท่านั้น
+T3 line-height เนื้อหา ≥ 1.5 หัวเรื่อง ≥ 1.3 (สระและวรรณยุกต์ไทยซ้อนสูง ถ้าต่ำกว่านี้จะตัด)
+T4 ขนาดตัวอักษรเนื้อหา ≥ 14px ในช่องตาราง ≥ 12px
+T5 ปีแสดงเป็น พ.ศ. เวลาแสดงแบบ 24 ชั่วโมง เช่น 08:30
+T6 ความต่างสีตัวอักษรกับพื้น ≥ 4.5:1
+T7 ทุกปุ่มและช่องกรอกใช้คีย์บอร์ดได้ มีเส้นโฟกัสมองเห็นชัด
+T8 สถานะของ run ที่เปลี่ยนเอง MUST อยู่ใน `aria-live="polite"`
+T9 เรียงชื่อภาษาไทยด้วย `Intl.Collator('th')`
+
+## 9. ตรวจก่อนส่งงาน (Definition of Done)
+
+รันตามลำดับ ทุกคำสั่งต้องผ่าน และ MUST แปะผลจริง
+
+```
+npm run lint
+npm run typecheck
+npm test
+npm run test:api
+npm run build
+```
+
+งานใหญ่ (เพิ่มหน้า เพิ่มกฎ แก้ solver) เพิ่มอีก: `npm run test:e2e`
+
+ทดสอบเฉพาะระบบจัดตาราง (ต้องผ่านก่อนบอกว่าหน้า 3 เสร็จ):
+D6 ไฟล์ตัวอย่างขนาดใหญ่ (~600 รายการ) จัดเสร็จ ไม่ค้าง ชนเป็น 0 จัดครบทุกรายการ
+D7 seed เดิม 3 ครั้ง ได้ hash ผลเหมือนกัน
+D8 กดยกเลิกกลางคัน แล้วจัดใหม่ได้ ไม่มี worker ค้าง
+D9 ไฟล์ที่จงใจใส่ข้อมูลผิด (รหัสครูซ้ำ, กลุ่มไม่มีห้องจุพอ) ถูกรายงานครบในครั้งเดียว
+D10 ส่งออก Excel แล้วอ่านกลับด้วยตัวตรวจ ผลเท่าเดิม และหัวคอลัมน์ตรงตัวอักษร
+
+เช็กด้วยตาเพิ่ม 5 ข้อ:
+D1 ไม่มี error สีแดงใน console
+D2 ปิดอินเทอร์เน็ตแล้วโหลดหน้าได้ ฟอนต์ไม่เปลี่ยน
+D3 เปิด reduced motion แล้วไม่มีการเคลื่อนไหว
+D4 หน้าจอกว้าง 1440px และ 390px ไม่มีข้อความทับกันหรือถูกตัด
+D5 ข้อมูลที่เห็นบนหน้าจอตรงกับข้อมูลใน API (เปิด Network ตรวจ 1 รายการ)
+
+## 10. เมื่อไรต้อง STOP แล้วถามคน
+
+S1 ไม่มีข้อมูลที่งานต้องใช้
+S2 กฎในโจทย์ตีความได้มากกว่าหนึ่งแบบ (เช่น "ครูไม่มีคาบพัก" หมายถึงอะไร)
+S3 ต้องเพิ่มไลบรารีหรือเปลี่ยนเวอร์ชัน
+S4 ต้องแก้ packages/contract
+S5 เทสต์ล้มเหลวเกิน 3 รอบ
+S6 ข้อมูลจริงมีโครงสร้างต่างจากไฟล์ตัวอย่าง
+S7 งานที่สั่งต้องลบหรือย้ายไฟล์
+S8 ต้องใช้ข้อมูลจากอินเทอร์เน็ต
+S9 ยังไม่มีไฟล์ตัวอย่างรูปแบบส่งออกจากกรรมการ แต่งานต้องเขียนส่วนส่งออก
+S10 ความหมายของ ท-ป-น ในข้อมูลจริงไม่ตรงกับ F3 (เช่น ทฤษฎีมากกว่า 1 ช่วง)
+
+วิธี STOP: เขียนคำถามเดียวที่ตอบได้สั้น ๆ พร้อมตัวเลือก 2–3 ข้อ แล้วหยุด
+
+## 11. รูปแบบรายงานของ AI (ใช้ทุกครั้ง ห้ามเปลี่ยนหัวข้อ)
+
+```
+งาน: <ชื่องานหนึ่งบรรทัด>
+ไฟล์ที่แก้: <รายชื่อไฟล์>
+สิ่งที่ทำ: <1–3 บรรทัด>
+ผลคำสั่งตรวจ: <แปะผลจริงของหมวด 9>
+ยังไม่ได้ทำ/ความเสี่ยง: <ถ้าไม่มี เขียนว่า ไม่มี>
+ต้องการคำตอบจากคน: <ถ้าไม่มี เขียนว่า ไม่มี>
+```
+
+## 12. เช็กลิสต์ 10 ข้อก่อนส่ง (ตอบ ใช่ ทุกข้อ)
+
+1. ไม่มีเงื่อนไขการจัดตารางฝังในโค้ดใช่ไหม (N1)
+2. ไม่มีข้อมูลที่แต่งเองใช่ไหม (N2)
+3. หน้านักเรียนและครูแสดงเฉพาะ verified ใช่ไหม (N3)
+4. ไม่มีไฟล์จากอินเทอร์เน็ตตอนรันใช่ไหม (N6)
+5. solver ใช้ seed และบันทึกไว้ใช่ไหม (N13)
+6. ไม่มี any, TODO หรือ catch เปล่าใช่ไหม (N9 N10 N11)
+7. แก้เฉพาะไฟล์ที่อยู่ในแผนใช่ไหม (N15)
+8. ข้อความไทยอยู่ใน th.ts ใช่ไหม (T1)
+9. animation ผ่าน useMotionPreset และรองรับ reduced motion ใช่ไหม (M7 M8)
+10. แปะผลคำสั่งตรวจจริงในรายงานใช่ไหม (N12)
+</script>
+
+<script>
+/* ---------- DATA A: overview, architecture ---------- */
+const RUBRIC=[
+ {n:'ความถูกต้องตามข้อกำหนด',p:40,m:'Rules library · Verifier · Solver',d:'12 ข้อย่อย เช่น ปวช.1 ไม่เกินคาบ 9, พักกลางวัน 1 ชม., กิจกรรมพฤหัส คาบ 6–7, ครูและห้องไม่ชน'},
+ {n:'ความครบถ้วนและคุณภาพ',p:15,m:'Views · Verifier (นับคาบ)',d:'ครบทุกวิชาและจำนวนคาบ ตารางกลุ่ม ครู ห้อง ครบและต่อเนื่อง'},
+ {n:'ความสามารถของระบบ',p:35,m:'Import · Runs · Conflict report · Views · Export',d:'นำเข้า จัดอัตโนมัติ รายงานสาเหตุ แสดงตาราง ส่งออก Excel/PDF'},
+ {n:'การประยุกต์ใช้ AI',p:20,m:'Solver (CSP + GA) · หน้าอธิบายอัลกอริทึม',d:'เลือกเทคนิค อธิบายเหตุผล วางแผน-ดำเนินการ-ประเมิน แสดงหลักฐานลดข้อขัดแย้ง'},
+ {n:'การนำเสนอและตรวจสอบ',p:10,m:'หน้าอธิบาย · Demo จริง',d:'อธิบายแนวคิดและสาธิตจัดตารางจริงให้กรรมการดู'}
+];
+const FEAS=[
+ {n:'ชั่วโมงสอนครูรวม (ต้องจัดให้ครู)',v:153,lo:138,hi:170,note:'นับวิชาแผนกเท่านั้น วิชาปฏิบัติแยก 2 กลุ่มจึงนับ ×2 · ช่วงรับได้ = 24+24+30×3 ถึง 28+28+38×3'},
+ {n:'คาบต่อสัปดาห์ของ ปวช.1',v:36,lo:0,hi:40,note:'คาบใช้ได้ต่อสัปดาห์ = (9−1 พัก) × 5 วัน = 40'},
+ {n:'คาบต่อสัปดาห์ของ ปวช.2',v:37,lo:0,hi:50,note:'(11−1) × 5 = 50'},
+ {n:'คาบต่อสัปดาห์ของ ปวช.3',v:34,lo:0,hi:50,note:'(11−1) × 5 = 50'}
+];
+const MODS_OVERVIEW=[
+ {k:'นำเข้า',t:'อ่านไฟล์ที่หน้าตาไม่คงที่',p:'ไฟล์ตัวอย่างมีแถวหัวตารางอยู่คนละบรรทัดในแต่ละชีต รหัสวิชามีช่องว่างไม่สม่ำเสมอ ("20000 - 1101" กับ "20000-1101") และเขียนวันเป็น "พฤหัส" บ้าง "พฤหัสบดี" บ้าง ตัวนำเข้าจึงต้องตรวจจับโครงสร้างเอง ไม่อ่านตามตำแหน่งตายตัว'},
+ {k:'กฎ',t:'เงื่อนไขเป็นข้อมูล ไม่ใช่โค้ด',p:'กฎ 19 ข้อจากแนวทางปฏิบัติถูกแปลงเป็นรายการกฎที่มีพารามิเตอร์ วันแข่งกรรมการให้โจทย์เพิ่ม ก็เพิ่มหรือแก้กฎได้โดยไม่แตะ solver'},
+ {k:'ตรวจอิสระ',t:'ตัวจัดกับตัวตรวจเป็นคนละส่วน',p:'Solver บอกว่าตารางดีไม่พอ ต้องมี Verifier ที่ไม่รู้ว่า solver คิดอย่างไร อ่านผลลัพธ์แล้วนับการละเมิดทีละกฎ ตารางที่ไม่ผ่านจะไม่ถูกเผยแพร่'},
+ {k:'อธิบายได้',t:'ทุกช่องตอบได้ว่าทำไมอยู่ตรงนี้',p:'คลิกช่องในตารางเห็นกฎที่เกี่ยวข้อง และถ้าจัดไม่ได้ ระบบรายงานชื่อกฎกับรายการที่ชนเป็นภาษาไทย ตรงกับเกณฑ์ข้อ 3.3'}
+];
+/* architecture: nodes [id,x,y,w,h,title,sub,kind,parent] */
+const NODES=[
+ ['adm',16,60,150,64,'คณะกรรมการ / Admin','นำเข้า · จัดตาราง','client'],
+ ['tch',16,150,150,64,'ครู','ดูตารางสอนตนเอง','client'],
+ ['stu',16,240,150,64,'นักเรียน','ดูตารางกลุ่ม · มือถือ','client'],
+ ['ngx',210,100,150,70,'Nginx','static + reverse proxy','edge'],
+ ['core',410,24,250,452,'API · Express 5','Node 22 · JavaScript ESM · Zod','core'],
+ ['m_auth',424,76,222,42,'Auth & Roles','JWT · admin / teacher / student','mod','core'],
+ ['m_imp',424,126,222,42,'Import','xlsx · json → รายงานการนำเข้า','mod','core'],
+ ['m_rules',424,176,222,42,'Rules Registry','rules.json · เวอร์ชันของกฎ','mod','core'],
+ ['m_runs',424,226,222,42,'Runs','สั่งจัด · SSE · ผลตรวจ','mod','core'],
+ ['m_views',424,276,222,42,'Views','กลุ่ม · ครู · ห้อง · วิชา','mod','core'],
+ ['m_exp',424,326,222,42,'Export','Excel · PDF','mod','core'],
+ ['m_aud',424,376,222,42,'Audit log','ใครทำอะไรเมื่อไร','mod','core'],
+ ['queue',710,60,170,58,'Run Queue','ตาราง schedule_run','async'],
+ ['solver',710,140,170,64,'Solver Worker','CSP + GA · worker_threads','async'],
+ ['verif',710,226,170,64,'Verifier','ตรวจอิสระ · ฟังก์ชันบริสุทธิ์','async'],
+ ['render',710,312,170,64,'PDF Renderer','Puppeteer · HTML + CSS','async'],
+ ['pg',930,100,160,64,'PostgreSQL 16','ข้อมูล · ผล · audit','data'],
+ ['files',930,200,160,64,'File Volume','uploads · exports','data']
+];
+const EDGES=[
+ ['e1','adm','ngx','M166,92 H210'],
+ ['e2','tch','ngx','M166,182 H190 V110 H210'],
+ ['e3','stu','ngx','M166,272 H200 V122 H210'],
+ ['e4','ngx','core','M360,135 H410'],
+ ['e5','core','pg','M660,450 H905 V150 H930'],
+ ['e6','core','queue','M660,89 H710'],
+ ['e7','queue','solver','M795,118 V140'],
+ ['e8','solver','verif','M795,204 V226'],
+ ['e9','verif','pg','M880,258 H905 V140 H930'],
+ ['e10','solver','pg','M880,172 H905 V120 H930'],
+ ['e11','core','render','M660,344 H710'],
+ ['e12','render','files','M880,344 H915 V240 H930']
+];
+const ELABELS=[[722,82,'enqueue'],[668,338,'print'],[792,132,'claim']];
+const KIND={client:'ผู้ใช้',edge:'ขอบระบบ',core:'API',mod:'โมดูลใน API',async:'งานเบื้องหลัง',data:'ที่เก็บข้อมูล'};
+const DETAIL={
+ adm:['คณะกรรมการหรือผู้จัดตารางใช้จอใหญ่ นำเข้าโจทย์ ปรับกฎ สั่งจัดตาราง ดูผลตรวจ และส่งออก','เป็นบทบาทเดียวที่แก้กฎและสั่งจัดตารางได้'],
+ tch:['ครูดูตารางสอนของตนเองและภาระชั่วโมงสอนเทียบกับช่วงที่กำหนด','เห็นเฉพาะ run ที่ผ่านการตรวจ (verified)'],
+ stu:['นักเรียนเลือกกลุ่มเรียนแล้วเห็นตารางของตนเอง ออกแบบมือถือก่อน ตรงกับข้อกำหนดหน้าเว็บให้นักเรียนตรวจตาราง','ไม่เห็นข้อมูลของครูนอกจากชื่อในช่องตาราง'],
+ ngx:['เสิร์ฟไฟล์ React ที่ build แล้วและส่งต่อ /api ไปยัง Express ตัวเดียวกัน ไม่ต้องตั้ง CORS','ไฟล์ทั้งหมดอยู่ในเครื่อง ไม่พึ่ง CDN จึงใช้ได้ตอนไม่มีอินเทอร์เน็ต'],
+ core:['แอป Express ตัวเดียวที่รวมโมดูลธุรกิจ แต่ละโมดูลมีโฟลเดอร์และตารางของตัวเอง และไม่ import กันข้ามโมดูลโดยตรง','Express ไม่คำนวณหนัก งานจัดตารางทั้งหมดอยู่ที่ worker เพื่อไม่ให้ API ค้าง'],
+ m_auth:['เข้าสู่ระบบด้วยรหัสผ่านที่แฮชด้วย argon2 ออก access token อายุสั้นและ refresh token ใน cookie httpOnly','บทบาทมี 3 แบบ ตรวจสิทธิ์ที่ middleware ก่อนถึงทุกเส้นทาง'],
+ m_imp:['อ่านไฟล์ xlsx หรือ json ด้วย ExcelJS ตรวจโครงสร้างด้วย Zod ทำให้รหัสวิชาและชื่อวันเป็นรูปแบบเดียว','ทุกแถวที่อ่านไม่ได้ถูกรายงานพร้อมเลขแถว ไม่ถูกข้ามเงียบ ๆ'],
+ m_rules:['เก็บชุดกฎเป็นเวอร์ชัน แต่ละ run อ้างอิงเวอร์ชันที่ใช้ ทำให้ย้อนดูได้ว่าตารางนี้จัดด้วยกฎชุดไหน','เพิ่มกฎจากหน้า admin ได้โดยไม่แก้โค้ด solver'],
+ m_runs:['สร้าง run เข้าคิว ส่งความคืบหน้าจริงผ่าน SSE และให้ผลตรวจแยกตามกฎ','บันทึก seed ทุกครั้ง จึงจัดซ้ำได้ผลเดิม'],
+ m_views:['สร้างตารางแยกตามกลุ่มเรียน ครู ห้อง และวิชา จากผลที่ verified ชุดเดียวกัน','ตารางครูไม่ถูกเก็บซ้ำ ดึงจากการจัดชุดเดียวกัน จึงไม่มีทางไม่ตรงกับตารางกลุ่ม'],
+ m_exp:['สั่งส่งออก Excel ด้วย ExcelJS และ PDF ผ่าน PDF Renderer','ปุ่มส่งออกใช้ได้เฉพาะ run ที่ verified'],
+ m_aud:['บันทึกการนำเข้า แก้กฎ สั่งจัด และส่งออก พร้อมผู้ทำและเวลา','เขียนเพิ่มอย่างเดียว ไม่แก้ไม่ลบ'],
+ queue:['คิวงานคือตาราง schedule_run ใน Postgres Worker หยิบงานด้วย SELECT … FOR UPDATE SKIP LOCKED','ไม่ใช้ Redis หรือ message broker เพื่อลดชิ้นส่วนที่ต้องดูแลบนเครื่องเดียว'],
+ solver:['รันอัลกอริทึมจัดตารางใน worker_threads แยกจาก event loop ของ Express ส่งความคืบหน้ากลับเป็นช่วง ๆ','เป็นฟังก์ชันบริสุทธิ์ รับ problem + rules + seed คืน solution ไม่แตะฐานข้อมูล'],
+ verif:['ตรวจผลลัพธ์ทีละกฎโดยไม่รู้ว่า solver คิดอย่างไร นับการละเมิดและระบุรายการที่ชน','ผ่านเมื่อกฎเด็ดขาดถูกละเมิดเป็นศูนย์ จึงตั้งสถานะ verified ได้'],
+ render:['Puppeteer เปิดหน้า HTML+CSS ในโฟลเดอร์ templates/print แล้วพิมพ์เป็น PDF ฝังฟอนต์ไทย','เลือกวิธีนี้เพราะ Chromium จัดสระและวรรณยุกต์ไทยถูกต้อง'],
+ pg:['เก็บข้อมูลนำเข้า ชุดกฎ run ผลตาราง ผลตรวจ และ audit log','ทุกตารางมี index ตามที่หน้า Views ค้นบ่อย'],
+ files:['เก็บไฟล์อัปโหลดต้นฉบับและไฟล์ส่งออก','แยกจากฐานข้อมูล ลบไฟล์ได้โดยไม่กระทบข้อมูลตาราง']
+};
+const SCN={
+ all:{name:'ทุกเส้นทาง',steps:[]},
+ imp:{name:'นำเข้าโจทย์',steps:[
+  ['e1','กรรมการเลือกไฟล์ xlsx แล้วอัปโหลด',['adm']],['e4','Nginx ส่งคำขอเข้า API',[]],
+  ['e5','Import ตรวจโครงสร้าง ทำรหัสวิชาให้เป็นรูปแบบเดียว แล้วบันทึกพร้อมรายงานแถวที่อ่านไม่ได้',['m_imp','m_auth']]]},
+ solve:{name:'จัดตาราง',steps:[
+  ['e1','กรรมการกดจัดตาราง',['adm']],['e4','คำขอผ่าน Nginx เข้า API',[]],
+  ['e6','Runs สร้างงานในคิว พร้อม seed และเวอร์ชันของกฎ',['m_runs','m_rules']],
+  ['e7','Solver Worker หยิบงานจากคิว',[]],
+  ['e10','Solver บันทึกความคืบหน้าและตารางที่ดีที่สุดเป็นช่วง ๆ',[]],
+  ['e8','ส่งผลสุดท้ายให้ Verifier ตรวจอิสระ',[]],
+  ['e9','บันทึกผลตรวจ ถ้าละเมิดกฎเด็ดขาดเป็นศูนย์ ตั้งสถานะ verified',[]],
+  ['e5','API อ่านผลและส่งความคืบหน้าจริงให้หน้าจอผ่าน SSE',['m_runs']]]},
+ view:{name:'นักเรียนดูตาราง',steps:[
+  ['e3','นักเรียนเปิดหน้าตารางบนมือถือ',['stu']],['e4','ผ่าน Nginx เข้า API',['m_auth']],
+  ['e5','Views อ่านเฉพาะผลที่ verified แล้วตอบตารางของกลุ่มที่เลือก',['m_views']]]},
+ exp:{name:'ส่งออก PDF',steps:[
+  ['e1','กรรมการกดส่งออก',['adm']],['e4','คำขอเข้า API ตรวจว่า run เป็น verified',['m_exp']],
+  ['e11','API ส่งคำสั่งพิมพ์ให้ PDF Renderer',[]],['e12','Renderer เขียนไฟล์ PDF ลง File Volume',[]]]}
+};
+
+/* ---------- DATA B: pipeline, rules, data model, contract ---------- */
+const STAGES=[
+ {n:'1',t:'นำเข้า',p:'อ่าน xlsx หรือ json ตรวจชนิดไฟล์ ขนาด และ sha256 กันนำเข้าซ้ำ',a:'→ import_batch + รายงานแถว'},
+ {n:'2',t:'ทำให้เป็นมาตรฐาน',p:'ตรวจหัวตารางเอง แปลงรหัสวิชา ชื่อวัน และชนิดห้องให้เป็นรูปแบบเดียว แล้ว parse ด้วย Zod',a:'→ problem.json (v1.0)'},
+ {n:'3',t:'คอมไพล์กฎ',p:'รวมกฎมาตรฐาน กฎจากไฟล์ และโจทย์จากกรรมการเป็นชุดกฎเวอร์ชันเดียว',a:'→ rule_set vN'},
+ {n:'4',t:'ตรวจความเป็นไปได้',p:'ตรวจเงื่อนไขจำเป็นก่อนเสียเวลาค้นหา เช่น ชั่วโมงครูรวม ความจุคาบต่อกลุ่ม จำนวนห้องแต่ละประเภท',a:'→ ผ่าน หรือ infeasible + สาเหตุ'},
+ {n:'5',t:'จัดตาราง',p:'วางแผนแล้วดำเนินการ: ล็อกช่องตายตัว มอบหมายครู สร้างคำตอบเริ่มต้น แล้วปรับปรุงด้วย GA',a:'→ solution.json + seed'},
+ {n:'6',t:'ตรวจอิสระ',p:'Verifier นับการละเมิดทีละกฎจากผลลัพธ์อย่างเดียว',a:'→ verify_result'},
+ {n:'7',t:'เผยแพร่',p:'ตั้งสถานะ verified เปิดหน้าดูตารางและปุ่มส่งออก',a:'→ views + export'}
+];
+const SOLVE_STEPS=[
+ {t:'วิเคราะห์ (Plan)',p:'สร้างโดเมนช่องเวลาที่เป็นไปได้ของแต่ละวิชา หักช่วงพักกลางวันและช่วงที่ครูหรือห้องไม่ว่าง'},
+ {t:'ตรึงช่องที่ล็อก',p:'วางวิชาที่โจทย์ระบุวันและคาบไว้ก่อน เช่น กิจกรรมพฤหัสคาบ 6–7 แล้วตัดช่องนั้นออกจากโดเมนอื่น'},
+ {t:'มอบหมายครู',p:'จับคู่ครูกับวิชาให้ชั่วโมงรวมของแต่ละคนอยู่ในช่วงที่กฎกำหนด'},
+ {t:'สร้างคำตอบเริ่มต้น',p:'CSP แบบ backtracking เลือกวิชาที่ตัวเลือกน้อยสุดก่อน (MRV) และตัดตัวเลือกที่ชนทันที (forward checking)'},
+ {t:'ปรับปรุง (Act)',p:'GA และการค้นหาเฉพาะที่ลดคะแนน soft โดยรักษากฎเด็ดขาดให้เป็นศูนย์ตลอด'},
+ {t:'ตรวจอิสระ',p:'ส่งผลให้ Verifier ถ้าพบการละเมิดแม้ข้อเดียว สถานะเป็น failed'},
+ {t:'เผยแพร่',p:'บันทึกตารางที่ดีที่สุด พร้อม seed คะแนน และประวัติการปรับปรุง'}
+];
+const FAILS=[
+ ['ชั่วโมงสอนรวมเกินที่ครูทุกคนรับได้','E-FEA-001 · ตอบ infeasible บอกส่วนต่างชั่วโมงและอ้างกฎ R-05 ไม่เริ่มค้นหา'],
+ ['ห้องประเภทที่ต้องใช้ไม่พอ','E-FEA-002 · ระบุประเภทห้องและจำนวนชั่วโมงที่ขาด อ้างกฎ R-06'],
+ ['วิชาที่ล็อกวันคาบชนกันเองในกลุ่มเดียวกัน','E-FEA-003 · ระบุคู่วิชาและช่องที่ชน อ้างกฎ R-03 และ R-10'],
+ ['หมดเวลาแล้วกฎเด็ดขาดยังถูกละเมิด','E-SOL-001 · ไม่เผยแพร่ แสดงตารางที่ใกล้เคียงสุดให้ admin พร้อมรายการที่ชน'],
+ ['Verifier พบการละเมิดที่ solver ไม่รู้','E-VER-001 · สถานะ failed บันทึกเป็นข้อบกพร่อง ห้ามส่งให้นักเรียนเห็น'],
+ ['Worker ล้มกลางงาน','งานค้างสถานะ solving เกินเวลาจะถูกรีเซ็ตเป็น queued นับ attempt ไม่เกิน 3 ครั้ง']
+];
+const RULES=[
+ ['R-01','maxPeriodByLevel','hard','กลุ่มเรียน','แนวทาง ข้อ 1','1.1','{"ปวช.1":9,"default":11}','ไม่มีคาบของกลุ่มที่เลขคาบเกินค่าของระดับ'],
+ ['R-02','lunchWindow','hard','กลุ่มเรียน','แนวทาง ข้อ 2','1.2','{"periods":[4,5,6],"length":1}','ทุกวัน ทุกกลุ่มมีหนึ่งคาบพักในช่วงนี้'],
+ ['R-03','fixedSlot','hard','วิชา','แนวทาง ข้อ 3 และคอลัมน์ข้อกำหนดในไฟล์','1.3 · 1.12','{"subject":"20000-2001","day":4,"periods":[6,7]}','วิชาอยู่ในวันและคาบที่ระบุทุกประการ'],
+ ['R-04','splitGroups','hard','วิชา','แนวทาง ข้อ 4','1.4','{"theory":"joint","practice":"split"}','ทฤษฎีรวมสองกลุ่ม ปฏิบัติแยกกลุ่มย่อย 1 และ 2'],
+ ['R-05','teacherLoadRange','hard','ครู','แนวทาง ข้อ 5','1.5','{"head":[24,28],"regular":[30,38]}','ชั่วโมงสอนรวมของครูแต่ละคนอยู่ในช่วงตามตำแหน่ง'],
+ ['R-06','roomTypeMatch','hard','ห้อง','แนวทาง ข้อ 6 และ 7','1.6','{"computer":["COM1","COM2","COM3","COM4"],"lab":["LAB1","LAB2"]}','วิชาใช้ห้องตรงประเภทที่ไฟล์ระบุ'],
+ ['R-07','externalRoomReuse','hard','ห้อง','แนวทาง ข้อ 8','—','{"externalRooms":"mayOverlap"}','วิชาที่ใช้ห้องนอกแผนกไม่ถูกนับว่าชนกับห้องของแผนก'],
+ ['R-08','contiguousBlock','hard','วิชา','แนวทาง ข้อ 9','1.7','{"noSplit":true,"acrossLunch":false}','ชั่วโมงของวิชาเดียวต่อเนื่องกัน และไม่คร่อมพักกลางวัน'],
+ ['R-09','teacherNoOverlap','hard','ครู','แนวทาง ข้อ 11','1.8','{}','ครูคนเดียวกันไม่มีสองคาบซ้อนเวลา'],
+ ['R-10','groupNoOverlap','hard','กลุ่มเรียน','แนวทาง ข้อ 13','1.9','{}','กลุ่มเรียนหรือกลุ่มย่อยไม่มีสองวิชาซ้อนเวลา'],
+ ['R-11','roomNoOverlap','hard','ห้อง','แนวทาง ข้อ 12','1.10','{}','ห้องเดียวกันไม่ถูกใช้ซ้อนเวลา'],
+ ['R-12','resourceUnavailable','hard','ครู · ห้อง','แนวทาง ข้อ 15 และชีตครู','1.10','{"teacher":"A","day":3,"periods":[1,2,3,4],"mode":"mustBeFree"}','ไม่มีการสอนในช่วงที่ครูหรือห้องไม่พร้อม'],
+ ['R-13','startAtPeriod1','hard','กลุ่มเรียน','แนวทาง ข้อ 17','1.11','{"noGapExceptLunch":true}','เริ่มคาบ 1 ทุกวันและไม่มีคาบว่างกลางวัน ยกเว้นพักกลางวัน'],
+ ['R-14','weekdaysOnly','hard','ทั้งระบบ','แนวทาง ข้อ 18','—','{"days":[1,2,3,4,5]}','ไม่มีคาบนอกวันจันทร์ถึงศุกร์'],
+ ['R-15','everyDayHasClass','hard','กลุ่มเรียน','แนวทาง ข้อ 19','—','{}','ทุกวันทำการมีเรียนอย่างน้อยหนึ่งคาบ'],
+ ['R-16','periodCountComplete','hard','วิชา','แนวทาง ข้อ 14','2.1','{}','จำนวนคาบของทุกวิชาครบตามที่กำหนด'],
+ ['R-17','teacherMaxLoad','hard','ครู','แนวทาง ข้อ 16','1.5','{"perTeacher":"fromRoster"}','ไม่เกินภาระสอนสูงสุดรายบุคคล'],
+ ['R-18','generalNotCounted','hard','ครู','แนวทาง ข้อ 10','1.5','{"excludeKinds":["general"]}','วิชาสามัญไม่ถูกนับในชั่วโมงสอนของครูแผนก'],
+ ['S-01','balanceTeacherDays','soft','ครู','ออกแบบเพิ่ม','คุณภาพ','{"weight":3}','ภาระสอนของครูกระจายทุกวัน ไม่กองวันเดียว'],
+ ['S-02','spreadSubjectDays','soft','กลุ่มเรียน','ออกแบบเพิ่ม','คุณภาพ','{"weight":2}','วิชาเดียวกันไม่ถูกจัดซ้ำหลายก้อนในวันเดียว'],
+ ['S-03','sameRoomForGroup','soft','กลุ่มเรียน','ออกแบบเพิ่ม','คุณภาพ','{"weight":1}','ลดการย้ายห้องของกลุ่มเดียวกันในวันเดียว'],
+ ['S-04','teacherCompactDay','soft','ครู','ออกแบบเพิ่ม','คุณภาพ','{"weight":2}','ลดช่องว่างระหว่างคาบสอนของครูในวันเดียว'],
+ ['S-05','lunchEven','soft','กลุ่มเรียน','ออกแบบเพิ่ม','คุณภาพ','{"weight":1}','พักกลางวันคาบเดียวกันทุกวันเมื่อทำได้']
+];
+const OPENQ=[
+ ['"ครูไม่มีคาบพัก" ในแนวทางข้อ 1 หมายถึงอะไร','ค่าตั้งต้น: ไม่บังคับพักกลางวันให้ครู ปรับได้ที่กฎ R-09'],
+ ['วิชากิจกรรม (เช่น ลูกเสือ) นับเป็นชั่วโมงสอนของครูแผนกหรือไม่','ค่าตั้งต้น: ไม่นับ แก้ที่กฎ R-18'],
+ ['เลข 50 และ 48 ท้ายชีต ปวช.1 และ ปวช.3 คืออะไร','นับจากไฟล์ได้ 36 และ 34 คาบ ระบบไม่ใช้เลขนี้คำนวณ แต่เตือนตอนนำเข้า'],
+ ['คาบหนึ่งยาวเท่าไรและเริ่มกี่โมง','สมมติ 60 นาที เริ่ม 08:30 ซึ่งทำให้คาบ 9 จบ 17:30 และคาบ 11 จบ 19:30 ตรงกับแนวทางข้อ 1'],
+ ['ชีต ปวช.2 ระบุห้องภาษาอังกฤษสลับกับภาษาไทย ตั้งใจหรือไม่','นำเข้าตามไฟล์และแสดงคำเตือน'],
+ ['ครูแต่ละคนสอนวิชาใดได้บ้าง ไฟล์ครูไม่ระบุ','ค่าตั้งต้น: ครูทุกคนสอนได้ทุกวิชาของแผนก']
+];
+const ENTS=[
+ ['user','แกน',[['id','PK'],['username','uk'],['password_hash','argon2'],['role','admin|teacher|student'],['group_id','FK null'],['teacher_id','FK null']],['teacher','class_group']],
+ ['import_batch','นำเข้า',[['id','PK'],['filename',''],['sha256','uk'],['report','jsonb'],['created_by','FK user']],['user']],
+ ['rule_set','กฎ',[['id','PK'],['version','int'],['rules','jsonb'],['created_by','FK user']],['user']],
+ ['level','โครงสร้าง',[['id','PK'],['name','ปวช.1'],['max_period','int']],['class_group']],
+ ['class_group','โครงสร้าง',[['id','PK'],['level_id','FK'],['name','ทค.1/1'],['sub','1|2 null']],['level','offering']],
+ ['teacher','ทรัพยากร',[['id','PK'],['name',''],['role','head|unit_head|regular'],['load_min','int'],['load_max','int']],['teacher_unavailable','placement']],
+ ['teacher_unavailable','ทรัพยากร',[['id','PK'],['teacher_id','FK'],['day','1-5'],['from_period','int'],['to_period','int'],['mode','mustBeFree']],['teacher']],
+ ['room','ทรัพยากร',[['id','PK'],['code','COM1'],['type','computer|lab|external']],['placement']],
+ ['subject','วิชา',[['id','PK code'],['name',''],['kind','theory|practice|activity|general'],['hours','int'],['room_type',''],['fixed','jsonb null']],['offering']],
+ ['offering','วิชา',[['id','PK'],['subject_id','FK'],['group_id','FK'],['split','joint|g1|g2']],['subject','class_group','placement']],
+ ['schedule_run','จัดตาราง',[['id','PK'],['batch_id','FK'],['rule_set_id','FK'],['seed','bigint'],['state','enum'],['score','numeric'],['hard_violations','int']],['import_batch','rule_set','placement','verify_result','export_job']],
+ ['placement','จัดตาราง',[['id','PK'],['run_id','FK'],['offering_id','FK'],['teacher_id','FK'],['room_id','FK'],['day','1-5'],['from_period','int'],['to_period','int']],['schedule_run','offering','teacher','room']],
+ ['verify_result','จัดตาราง',[['id','PK'],['run_id','FK'],['rule_id','R-05'],['violations','int'],['detail','jsonb']],['schedule_run']],
+ ['export_job','ส่งออก',[['id','PK'],['run_id','FK'],['format','xlsx|pdf'],['path','']],['schedule_run']],
+ ['audit_log','ตรวจสอบ',[['id','PK'],['actor_id','FK user'],['action',''],['target',''],['at','timestamptz']],['user']]
+];
+const RELS=[
+ ['placement n ── 1 offering','หนึ่งวิชาของหนึ่งกลุ่ม (หรือกลุ่มย่อย) ได้หนึ่งช่องเวลา ตารางครู ห้อง และกลุ่มดึงจากตารางเดียวกันนี้ จึงไม่มีทางขัดกันเอง'],
+ ['offering.split = joint | g1 | g2','วิชาทฤษฎีรวมสองกลุ่มเป็น offering เดียวที่ชี้ไปสองกลุ่ม วิชาปฏิบัติแตกเป็นสอง offering ตามแนวทางข้อ 4'],
+ ['schedule_run 1 ── n placement','ทุก run เก็บผลของตัวเอง เปรียบเทียบสอง run ย้อนหลังได้ และ seed เดิมให้ผลเดิม'],
+ ['schedule_run 1 ── n verify_result','ผลตรวจแยกต่อกฎ ใช้สร้างหน้ารายงานความขัดแย้ง'],
+ ['rule_set (เวอร์ชัน) ── schedule_run','แก้กฎแล้วไม่กระทบผลเก่า เพราะ run อ้างเวอร์ชันที่ใช้']
+];
+const CONTRACT={
+ problem:`{
+  "schemaVersion": "1.0",
+  "calendar": { "days": [1,2,3,4,5], "maxPeriod": 11, "periodMinutes": 60, "dayStart": "08:30" },
+  "levels": [{ "id": "L1", "name": "ปวช.1", "maxPeriod": 9 }],
+  "groups": [
+    { "id": "G-1-1", "levelId": "L1", "name": "ทค.1/1" },
+    { "id": "G-1-2", "levelId": "L1", "name": "ทค.1/2" }
+  ],
+  "teachers": [{
+    "id": "T-A", "name": "คุณครู A", "role": "head", "loadRange": [24, 28],
+    "unavailable": [{ "day": 3, "from": 1, "to": 4, "mode": "mustBeFree" }]
+  }],
+  "rooms": [{ "id": "COM1", "type": "computer" }, { "id": "LAB1", "type": "lab" }],
+  "subjects": [
+    { "id": "20000-1101", "name": "ภาษาไทยเพื่อการสื่อสาร", "kind": "general", "hours": 2,
+      "fixed": { "day": 1, "from": 1, "to": 2 }, "room": { "external": "ห้องเรียนภาษาไทย" } },
+    { "id": "21909-1004", "name": "พื้นฐานการวิเคราะห์และออกแบบระบบ", "kind": "practice", "hours": 4,
+      "room": { "type": "computer" } }
+  ],
+  "offerings": [
+    { "id": "O-1", "subjectId": "21909-1004", "groupIds": ["G-1-1"], "split": "g1" },
+    { "id": "O-2", "subjectId": "21909-1004", "groupIds": ["G-1-2"], "split": "g2" }
+  ]
+}`,
+ solution:`{
+  "schemaVersion": "1.0",
+  "runId": "R-0007",
+  "seed": 424242,
+  "rulesVersion": 3,
+  "stats": { "hard": 0, "soft": 14.5, "generations": 312, "ms": 41850 },
+  "placements": [
+    { "offeringId": "O-1", "teacherId": "T-C", "roomId": "COM2", "day": 2, "from": 1, "to": 4 },
+    { "offeringId": "O-2", "teacherId": "T-D", "roomId": "COM3", "day": 2, "from": 1, "to": 4 }
+  ]
+}`,
+ error:`{
+  "code": "E-FEA-001",
+  "message": "ชั่วโมงสอนรวมของครูไม่พอตามกฎ R-05",
+  "details": [{ "rule": "R-05", "need": 153, "capacityMax": 150 }]
+}`
+};
+
+/* ---------- DATA C: stack, ops, decisions ---------- */
+const STACK_FE=[
+ {g:'แกนหน้าเว็บ',items:[
+  ['React 18','สร้าง UI แบบคอมโพเนนต์','Concurrent rendering ทำให้หน้าตารางไม่กระตุกตอนผลตรวจเข้ามา','ต้องจัดโครงสร้างโฟลเดอร์เองให้ชัด'],
+  ['TypeScript (strict)','ชนิดข้อมูลทุกไฟล์ฝั่งเว็บ','ชนิดข้อมูลของ API มาจาก Zod schema ใน packages/contract ชุดเดียวกับฝั่งเซิร์ฟเวอร์','ต้องแปลง JSDoc ฝั่ง API เป็นชนิดผ่าน z.infer'],
+  ['Vite','dev server และ build','เริ่มเร็ว build เป็น ESM ไฟล์ทั้งหมดอยู่ในเครื่อง เหมาะกับการใช้ออฟไลน์','ไม่มี SSR ซึ่งระบบนี้ไม่ต้องใช้']]},
+ {g:'เส้นทางและข้อมูล',items:[
+  ['React Router','แยกหน้า admin, ครู, นักเรียน, print','route guard ตามบทบาท และ route /print สำหรับ PDF','—'],
+  ['TanStack Query','cache ข้อมูลจาก API','ผลตารางที่ verified แล้วไม่เปลี่ยน cache ได้นาน ส่วนสถานะ run รับจาก SSE แล้วอัปเดต cache','ต้องกำหนด query key ให้เป็นระบบ'],
+  ['Zod','ตรวจข้อมูลที่เข้ามาที่ขอบระบบ','ทุกคำตอบจาก API ถูก parse ก่อนใช้ ถ้าโครงเปลี่ยนจะรู้ทันที ไม่ใช่ตอนหน้าจอพัง','เพิ่มเวลา parse เล็กน้อย']]},
+ {g:'หน้าตา',items:[
+  ['CSS Modules + CSS variables','สไตล์ตาม design tokens','tokens.css เก็บสี ระยะ เวลา easing ชุดเดียว รองรับโหมดสว่างและมืดที่ระดับ token','ไม่มีคลาสสำเร็จรูปเหมือน Tailwind'],
+  ['CSS สมัยใหม่','container queries, :has(), @layer, clamp(), logical properties','ช่องตารางปรับตามความกว้างของตัวเอง ไม่ใช่ความกว้างหน้าจอ','ต้องทดสอบบนเบราว์เซอร์ที่ใช้ในวันแข่ง'],
+  ['@fontsource','IBM Plex Sans Thai และ Noto Sans Thai','ฟอนต์ติดไปกับแอป ไม่โหลดจากเน็ต','ขนาดไฟล์ใหญ่ขึ้น ใช้ subset ไทยและละติน']]},
+ {g:'Motion',items:[
+  ['motion (React)','layout animation, AnimatePresence, useReducedMotion','ช่องตารางย้ายตำแหน่งแบบต่อเนื่องหลังลากวาง แผงรายละเอียดเข้าและออก','ใช้เฉพาะจุดที่ช่วยให้เข้าใจ ตามกติกาข้อ M2'],
+  ['CSS transitions','hover, focus, ปุ่ม, การ์ด','เบาสุด ทำงานบน compositor ด้วย transform และ opacity','—'],
+  ['View Transitions API','เปลี่ยนหน้าแบบ progressive enhancement','ถ้าเบราว์เซอร์ไม่รองรับ ก็เปลี่ยนหน้าธรรมดา ไม่พัง','พฤติกรรมต่างกันตามเบราว์เซอร์'],
+  ['SVG + CSS animation','ไดอะแกรมสถาปัตยกรรม จุดข้อมูลวิ่ง','ใช้เฉพาะหน้าอธิบายระบบ ปิดเมื่อ reduced motion','—']]},
+ {g:'การโต้ตอบและกราฟ',items:[
+  ['dnd-kit','ลากวางช่องตารางเพื่อปรับมือ','รองรับคีย์บอร์ดในตัว หลังวางแล้วเรียก API ตรวจซ้ำทันที','แก้ด้วยมือเกิดรอบ verify ใหม่ ช้ากว่าตรวจฝั่งหน้าเว็บ แต่ถูกต้องตามกติกา N4'],
+  ['d3-scale + d3-shape','วาดกราฟคะแนนของรอบที่จัดจริง','ใช้เฉพาะส่วนคำนวณ เขียน SVG เองจึงควบคุมธีมและขนาดไฟล์','เขียนแกนและ tooltip เอง']]},
+ {g:'คุณภาพ',items:[
+  ['ESLint + Prettier','กฎโค้ดและรูปแบบ','jsx-a11y จับปัญหาการเข้าถึงตั้งแต่เขียน','—'],
+  ['Vitest + Testing Library','ทดสอบคอมโพเนนต์และฟังก์ชัน','ใช้ Vitest ชุดเดียวกับ packages ฝั่งเซิร์ฟเวอร์','—'],
+  ['Playwright','ทดสอบทั้งเส้นทาง และภาพหน้าจอ 1440 กับ 390 px','ทดสอบนำเข้า → จัด → ดูตาราง → ส่งออกจริง','ต้องติดตั้งเบราว์เซอร์ในเครื่อง']]}
+];
+const STACK_BE=[
+ ['Node 22 LTS + Express 5','API','รองรับ async error handling ในตัว middleware ตรวจสิทธิ์และ Zod ก่อนเข้าทุกเส้นทาง'],
+ ['JavaScript ESM + JSDoc','ภาษาฝั่ง API และ solver','ตรวจชนิดด้วย tsc --checkJs ไม่ต้องคอมไพล์ แต่ยังมี type safety'],
+ ['worker_threads','รัน solver','ไม่บล็อก event loop ของ API ส่งความคืบหน้ากลับด้วย postMessage'],
+ ['PostgreSQL 16 + pg','ข้อมูลและคิว','query แบบ parameter เท่านั้น คิวใช้ SKIP LOCKED'],
+ ['ExcelJS','อ่านไฟล์โจทย์ และเขียนไฟล์ส่งออก','อ่านชีตที่หัวตารางอยู่คนละบรรทัดได้ ควบคุมการผสานเซลล์ตอนส่งออก'],
+ ['Puppeteer','พิมพ์ PDF จาก HTML + CSS','Chromium จัดสระและวรรณยุกต์ไทยถูกต้อง ใช้หน้า /print เดียวกับที่เห็นบนจอ'],
+ ['argon2 + jose','แฮชรหัสผ่าน และ JWT','มาตรฐานที่ตรวจสอบแล้ว ไม่เขียนเอง'],
+ ['multer + pino','รับไฟล์อัปโหลด และบันทึก log','จำกัดชนิดและขนาดไฟล์ log เป็น JSON ค้นง่าย'],
+ ['Vitest + supertest','ทดสอบฟังก์ชันและ API','ทดสอบกฎทีละข้อด้วยข้อมูลสั้นที่รู้คำตอบ']
+];
+const SERVICES=[
+ ['nginx','เสิร์ฟ apps/web (build แล้ว) และ proxy /api'],
+ ['api','Express 5 ตัวเดียว ไม่คำนวณหนัก'],
+ ['worker','image เดียวกับ api แต่รันคำสั่ง worker หยิบงานจากคิว'],
+ ['renderer','Chromium สำหรับพิมพ์ PDF แยกเพื่อไม่ให้ api ใหญ่'],
+ ['postgres','ข้อมูลทั้งหมด พร้อม volume']
+];
+const ROLES=[
+ ['นำเข้าข้อมูล แก้กฎ','ได้','ไม่ได้','ไม่ได้'],
+ ['สั่งจัดตาราง','ได้','ไม่ได้','ไม่ได้'],
+ ['ดูตารางทุกกลุ่ม ทุกครู ทุกห้อง','ได้','ไม่ได้','ไม่ได้'],
+ ['ดูตารางสอนของตนเอง','ได้','ได้','ไม่ได้'],
+ ['ดูตารางของกลุ่มเรียนตนเอง','ได้','ไม่ได้','ได้'],
+ ['ส่งออก Excel / PDF','ทุกรายการ','เฉพาะของตน','เฉพาะของตน'],
+ ['ดูตารางที่ยังไม่ verified','ได้','ไม่ได้','ไม่ได้'],
+ ['ดู audit log','ได้','ไม่ได้','ไม่ได้']
+];
+const TARGETS=[
+ ['นำเข้าไฟล์ตัวอย่าง','≤ 3 วินาที'],
+ ['ตรวจความเป็นไปได้','≤ 1 วินาที'],
+ ['จัดไฟล์ตัวอย่างจนได้ผล verified','≤ 120 วินาที'],
+ ['เปิดหน้าตารางหลังมีผล','≤ 300 ms'],
+ ['ส่งออก PDF หนึ่งกลุ่ม','≤ 5 วินาที']
+];
+const RUNBOOK=[
+ {g:'ก่อนวันแข่ง',items:['ซ้อม docker compose up บนเครื่องที่จะใช้แข่ง และปิดอินเทอร์เน็ตทดสอบ','ทดสอบนำเข้าไฟล์ตัวอย่าง จัดตาราง และส่งออก PDF ให้ครบหนึ่งรอบ','เก็บ seed และผลของรอบที่ดีที่สุดไว้เป็นข้อมูลสำรอง','พิมพ์ PDF ตัวอย่างแล้วตรวจสระและวรรณยุกต์ไทยด้วยตา']},
+ {g:'ก่อนเริ่ม 30 นาที',items:['เปิดระบบ ตรวจ /api/health ครบทุกบริการ','ล็อกอินครบ 3 บทบาท','เตรียมไฟล์สำรองของฟอร์แมตนำเข้า (xlsx และ json)']},
+ {g:'ระหว่างแข่ง',items:['รับโจทย์จากกรรมการ นำเข้า แล้วอ่านรายงานการนำเข้าก่อนกดจัด','เปรียบเทียบกฎของกรรมการกับรายการกฎ เพิ่มหรือแก้ใน rules ถ้าต่าง','จัดตารางแล้วอ่านผลตรวจ ถ้า infeasible ให้แสดงรายงานสาเหตุแก่กรรมการ']},
+ {g:'ถ้ามีเหตุขัดข้อง',items:['worker ค้าง: สั่ง docker compose restart worker แล้วกดจัดใหม่ด้วย seed เดิม','PDF พัง: ส่งออก Excel ก่อน แล้วแก้ renderer ทีหลัง','ห้ามเปิดผลที่ไม่ verified ให้กรรมการเห็นโดยไม่บอกสถานะ']}
+];
+const ADRS=[
+ ['ADR-01','ตามที่กำหนด','Express 5 ตัวเดียว + worker แยกกระบวนการ','ไม่แยกเป็นหลายบริการ งานหนักอยู่ที่ worker ผ่านคิวใน Postgres','จัดสเกลแยกส่วนไม่ได้ แต่ทีมสองคนดูแลไหว และขอบเขตระหว่างโมดูลชัดพอจะแยกทีหลัง'],
+ ['ADR-02','ข้อเสนอ','Solver เป็นฟังก์ชันบริสุทธิ์ใน worker_threads','รับ problem + rules + seed คืน solution ไม่แตะฐานข้อมูลหรือ Express','ต้องส่งข้อมูลข้าม thread และ JS ช้ากว่าภาษา compiled ชดเชยด้วย typed array และ bitmap ของการใช้ช่องเวลา'],
+ ['ADR-03','ข้อเสนอ','Verifier อิสระจาก Solver','ใช้ฟังก์ชัน check ชุดเดียวกันจาก packages/rules แต่ไม่ import solver','ต้องเขียนและทดสอบชั้นตรวจเพิ่ม แลกกับตารางที่เผยแพร่แล้วพิสูจน์ได้ว่าไม่ผิดกฎ'],
+ ['ADR-04','ข้อเสนอ','กฎเป็นข้อมูล (rules.json) ไม่ฝังในโค้ด','กฎมีชนิด (rule type) และพารามิเตอร์ เพิ่มกฎใหม่ในวันแข่งโดยแก้ข้อมูล','ต้องออกแบบชนิดกฎล่วงหน้า ถ้าโจทย์ใหม่เป็นชนิดที่ไม่เคยมี ต้องเขียนฟังก์ชัน check เพิ่มหนึ่งตัว'],
+ ['ADR-05','ข้อเสนอ','คิวงานเป็นตารางใน Postgres','SELECT … FOR UPDATE SKIP LOCKED ไม่มี Redis','หยิบงานด้วยการ poll ไม่ใช่ push แต่ลดชิ้นส่วนที่ต้องดูแล'],
+ ['ADR-06','ข้อเสนอ','PDF ด้วย Puppeteer จากหน้า HTML + CSS','ใช้ React คอมโพเนนต์ตัวเดียวกับหน้าจอ ผ่านเส้นทาง /print','ต้องมี Chromium ในเครื่อง ใหญ่ แต่สระและวรรณยุกต์ไทยถูกต้อง'],
+ ['ADR-07','ข้อเสนอ','CSS Modules + tokens ไม่ใช้ Tailwind หรือ UI kit','เขียนคอมโพเนนต์เองตามสไตล์ glass เขียวเข้ม','ใช้เวลาเขียนมากกว่า แต่ได้หน้าตาที่ไม่ซ้ำใคร ควบคุมขนาดไฟล์และธีมได้ทั้งหมด'],
+ ['ADR-08','ข้อเสนอ','SSE แทน WebSocket','ส่งความคืบหน้าทางเดียวจากเซิร์ฟเวอร์','สื่อสารทางเดียว แต่พอสำหรับความคืบหน้า และง่ายกว่ามาก'],
+ ['ADR-09','ข้อเสนอ','ออฟไลน์เป็นหลัก ไม่พึ่ง CDN','ฟอนต์ ไอคอน และสคริปต์ทั้งหมดอยู่ในแอป','ไฟล์ใหญ่ขึ้นเล็กน้อย แต่ไม่มีทางที่เน็ตของสถานที่แข่งทำให้ระบบล่ม'],
+ ['ADR-10','ตามที่กำหนด','JavaScript + JSDoc ฝั่ง API และ solver, TypeScript ฝั่งเว็บ','ใช้ tsc --checkJs และ Zod ตรวจที่ขอบระบบ สัญญาข้อมูลอยู่ที่ packages/contract','type safety ฝั่งเซิร์ฟเวอร์อ่อนกว่า TypeScript เต็มรูปแบบ ชดเชยด้วยการตรวจตอนรันที่ขอบระบบ']
+];
+const ROADMAP=[
+ {p:'P0',t:'ต้องมีก่อนไปแข่ง',s:'ครอบคลุมเกณฑ์หมวด 1–3 (90 คะแนน)',items:['สัญญาข้อมูล และตัวนำเข้าที่รองรับไฟล์ตัวอย่าง','กฎ R-01 ถึง R-18 พร้อมเทสต์ผ่านและไม่ผ่าน','Verifier และ Solver รอบแรก (CSP) ที่ผ่านไฟล์ตัวอย่าง','หน้าดูตาราง 4 แบบ และหน้านักเรียนบนมือถือ','ส่งออก Excel และ PDF','เข้าสู่ระบบ 3 บทบาท']},
+ {p:'P1',t:'เพิ่มคะแนน AI และคุณภาพ',s:'เกณฑ์หมวด 4 (20 คะแนน) และการนำเสนอ',items:['GA ปรับปรุงคะแนน soft โดยรักษา hard เป็นศูนย์','หน้าอธิบายอัลกอริทึมพร้อมกราฟคะแนนของรอบจริง','รายงานสาเหตุที่จัดไม่ได้','ความคืบหน้าจริงผ่าน SSE','ลากวางปรับมือแล้วตรวจซ้ำ']},
+ {p:'P2',t:'ถ้ามีเวลา',s:'ตัดทิ้งก่อนเป็นอันดับแรกถ้าเวลาไม่พอ',items:['GA หลาย worker แลกคำตอบกัน','ฟอร์มแก้กฎในหน้า admin','เปรียบเทียบสอง run','นำเข้า PDF ที่มีชั้นข้อความ']}
+];
+const RISKS=[
+ ['ไม่มีข้อมูลจริงก่อนวันแข่ง','สร้างชุดทดสอบจากไฟล์ตัวอย่างหลายแบบ เช่น หัวตารางเลื่อน ชื่อวันต่างกัน แล้วให้ตัวนำเข้าผ่านทุกแบบ'],
+ ['โจทย์วันแข่งมีกฎชนิดใหม่','เขียน rule type ให้ทั่วไปพอ และซ้อมเพิ่มกฎใหม่หนึ่งข้อภายใน 10 นาที'],
+ ['JS ช้าเกินไปสำหรับข้อมูลใหญ่','ใช้ typed array กับ bitmap ของช่องเวลา และแบ่งงานหลาย worker (P2) ถ้าวัดแล้วช้าจริง'],
+ ['กฎบางข้อกำกวม','ใช้รายการคำถามถึงกรรมการในหน้า "กฎและเงื่อนไข" ตั้งค่าตั้งต้นที่ปรับได้ แทนการเดา']
+];
+
+/* ---------- REVISION: โจทย์ใหม่ (6 หน้า, 7 แผ่นงาน, seed, ส่งออก) ---------- */
+RUBRIC.length=0;
+RUBRIC.push(
+ {n:'หน้า 3 จัดตาราง',p:25,m:'Solver · Verifier · Runs',d:'ปุ่มจัด แถบความคืบหน้า ยกเลิก seed ผลตรวจของระบบเอง คำอธิบายลำดับการจัด ผ่านเมื่อชนเป็น 0 จัดครบ ชุดใหญ่ไม่ค้าง seed เดิมได้ผลเดิม'},
+ {n:'หน้า 4 ดูตาราง',p:23,m:'Views · TimetableGrid',d:'3 มุมมอง (กลุ่ม ครู ห้อง) ช่องค้นหา วิชาซ้อนกันแสดงทั้งคู่ จำนวนคาบรวมต่อสัปดาห์ กรรมการเปิดดูจุดที่รู้คำตอบ'},
+ {n:'หน้า 5 ผลการใช้ AI',p:16,m:'Compare · Explain',d:'เปรียบเทียบวิธีพื้นฐานกับวิธีของทีม ≥ 3 เรื่อง (ชน คะแนนโทษ เวลา) ดีกว่าจริงเป็นตัวเลข และกดซ้ำด้วย seed เดิมได้ผลเดิม'},
+ {n:'หน้า 1 นำเข้าข้อมูล',p:11,m:'Import · Validator · Templates',d:'อัปโหลด Excel แม่แบบเปล่า ตัวอย่าง 3 ขนาด รายงานข้อผิดทั้งหมดในครั้งเดียว ปุ่มยืนยันก่อนใช้ข้อมูล'},
+ {n:'หน้า 2 คำขอพิเศษ',p:4,m:'Requests · Parser · Form',d:'แสดงคำขอไทยคู่กับสิ่งที่ระบบเข้าใจ 3 แบบ แก้ ยืนยัน เพิ่มเองได้ มีฟอร์มสำรองถ้า AI ใช้ไม่ได้'},
+ {n:'หน้า 6 สรุปและส่งออก',p:4,m:'Summary · Export',d:'ตัวเลขช่วยตัดสินใจ ผลคำขอพิเศษทีละข้อ PDF ตารางพิมพ์ Excel ตามภาคผนวก'},
+ {n:'ออนไลน์ + นำเสนอ',p:17,m:'Deploy · Presentation',d:'เปิดจากลิงก์ได้ทั้งคอมพิวเตอร์และมือถือ (2) และนำเสนอตอบคำถาม (15)'}
+);
+FEAS.length=0;
+const FACTS=[
+ ['ชุดทดลอง','4 กลุ่มเรียน','ไว้ดูด้วยตาว่าถูกไหม'],
+ ['ชุดหลัก','12 กลุ่มเรียน','ใช้ลองเมื่อเว็บทำงานแล้ว'],
+ ['ชุดใหญ่ที่กรรมการทดสอบ','≈ 600 รายการ','ต้องไม่ค้าง ยกเลิกกลางคันได้'],
+ ['ไฟล์โจทย์','7 แผ่นงาน','ครู · ไม่สะดวก · ห้อง · กลุ่ม · วิชา · คำขอพิเศษ · รายการสอน']
+];
+MODS_OVERVIEW.length=0;
+MODS_OVERVIEW.push(
+ {k:'ท-ป-น',t:'แตกรายการสอนเป็นครั้งที่ต้องจัด',p:'1-4-3 หมายถึงทฤษฎี 1 คาบในห้องบรรยาย และปฏิบัติ 4 คาบติดกันในห้องคอมพิวเตอร์ ครู กลุ่ม ห้องต้องว่างทั้งสองครั้ง ถ้า ป เป็น 0 ไม่ต้องจัดปฏิบัติ'},
+ {k:'seed',t:'ผลซ้ำได้ ยกเลิกได้ ไม่ค้าง',p:'solver หยุดด้วยจำนวนรอบ ไม่ใช่เวลา จึงได้ผลเดิมเมื่อ seed เดิม และเช็กคำสั่งยกเลิกทุกช่วงรอบ'},
+ {k:'คำขอพิเศษ',t:'ภาษาไทย → เงื่อนไข 3 ระดับ',p:'ตัวอ่านแบบกฎในเครื่องเป็นหลัก AI ภาษาเป็นตัวเสริม และมีฟอร์มกรอกเอง ทุกข้อให้ผู้ใช้ยืนยันก่อนจัด'},
+ {k:'พิสูจน์',t:'เทียบกับวิธีพื้นฐานด้วยการรันจริง',p:'หน้า 5 รันทั้งวางช่องแรกที่ว่างและวิธีของทีม บนข้อมูลและ seed เดียวกัน ตัวเลขทุกตัวมาจากการรันนั้น'}
+);
+/* pipeline */
+STAGES.length=0;
+STAGES.push(
+ {n:'1',t:'นำเข้าและตรวจ',p:'อ่าน 7 แผ่นงาน ตรวจทุกข้อผิดในครั้งเดียว บอกแผ่นงาน แถว สิ่งที่ผิด วิธีแก้',a:'→ รายงาน + ปุ่มยืนยัน'},
+ {n:'2',t:'คำขอพิเศษ',p:'อ่านภาษาไทยเป็นเงื่อนไข จัด 3 ระดับ ให้ผู้ใช้แก้และยืนยัน',a:'→ must / try / noop'},
+ {n:'3',t:'แตกรายการสอน',p:'แยกเป็นครั้งทฤษฎีและปฏิบัติ ตามท-ป-น พร้อมกลุ่มที่เรียนรวม',a:'→ รายการที่ต้องจัด (≈600)'},
+ {n:'4',t:'ตรวจความเป็นไปได้',p:'ชั่วโมงรวม ความจุห้อง คาบสูงสุดต่อวัน ถ้าเป็นไปไม่ได้บอกเหตุผลทันที',a:'→ ไปต่อ หรือ infeasible'},
+ {n:'5',t:'จัดตาราง',p:'CSP + GA ด้วย seed ที่บันทึกไว้ หยุดด้วยจำนวนรอบ เช็กการยกเลิกทุกช่วง',a:'→ ตารางผู้สมัคร'},
+ {n:'6',t:'ตรวจอิสระ',p:'Verifier นับชน ผิดกฎ คะแนนโทษ จากตารางจริง ไม่ดูข้อมูลภายใน solver',a:'→ verified'},
+ {n:'7',t:'แสดงและส่งออก',p:'ดูตาราง สรุป เปรียบเทียบกับวิธีพื้นฐาน PDF และ Excel ตามภาคผนวก',a:'→ หน้า 4–6'}
+);
+/* rules: เพิ่มกฎจากโจทย์ใหม่ */
+RULES.push(
+ ['R-24','sessionSplitTHN','hard','รายการสอน','โจทย์ ข้อ 1','หน้า 3','{"theory":"ท","practice":"ป","skipPracticeIfZero":true}','แต่ละรายการสอนมีครั้งทฤษฎีและครั้งปฏิบัติครบตามท-ป-น ไม่มีครั้งปฏิบัติเมื่อ ป = 0'],
+ ['R-25','practiceContiguous','hard','ครั้งปฏิบัติ','โจทย์ ข้อ 1','หน้า 3','{"mustBeContiguous":true,"acrossBreak":false}','ครั้งปฏิบัติอยู่คาบติดกันครบจำนวน ในวันเดียว'],
+ ['R-26','jointGroupsFree','hard','เรียนรวม','โจทย์ ข้อ 1','หน้า 3','{"allGroupsFree":true}','ทุกกลุ่มที่เรียนรวมว่างพร้อมกันในครั้งนั้น'],
+ ['R-27','roomCapacity','hard','ห้อง','โจทย์ ข้อ 1','หน้า 3','{"sumStudents":true}','ความจุห้องไม่น้อยกว่าจำนวนนักเรียนรวมทุกกลุ่มที่เรียนครั้งนั้น'],
+ ['R-28','roomType','hard','ห้อง','โจทย์ ข้อ 1','หน้า 3','{"theory":"lecture","practice":"course.room"}','ทฤษฎีอยู่ห้องบรรยาย ปฏิบัติอยู่ห้องที่รายวิชากำหนด'],
+ ['R-29','teacherMaxPerDay','hard','ครู','แผ่นงานครู','หน้า 3','{"source":"sheet:ครู.maxPerDay"}','จำนวนคาบสอนของครูแต่ละวันไม่เกินค่าในแผ่นงานครู'],
+ ['R-30','specialRequests','hard/soft','คำขอพิเศษ','แผ่นงานคำขอ','หน้า 2, 6','{"must":"hard","try":"soft","noop":"report"}','คำขอ must ต้องเป็นจริงทุกข้อ try นับคะแนนโทษ noop มีเหตุผลแสดงในหน้าสรุป']
+);
+OPENQ.push(
+ ['ท-ป-น ที่ ท มากกว่า 1 จัดเป็นช่วงเดียวติดกัน หรือแบ่งได้','ค่าตั้งต้น: ช่วงเดียวติดกัน (ตีความตามตัวอย่าง 1-4-3 = 2 ครั้ง) ปรับได้ที่ R-24'],
+ ['กฎใน "แนวทางปฏิบัติ" ฉบับ ปวช. ใช้กับข้อมูลชุดนี้หรือไม่ (เช่น พักกลางวัน ภาระครู 24–38 ชม.)','ค่าตั้งต้น: ปิดไว้จนกว่ากรรมการยืนยัน เปิดทีละข้อใน rules.json'],
+ ['"คะแนนโทษ" คำนวณอย่างไร และคำขอ "ทำถ้าทำได้" มีน้ำหนักเท่าไร','ค่าตั้งต้น: น้ำหนักตั้งในไฟล์กฎ แสดงสูตรในหน้า 5 ให้ตรวจสอบได้']
+);
+/* data: 7 แผ่นงาน */
+ENTS.length=0;
+ENTS.push(
+ ['teacher','ไฟล์โจทย์',[['code','PK เช่น TIT02'],['name','text'],['dept','text'],['max_per_day','int']],['unavailable','teaching_item','request']],
+ ['unavailable','ไฟล์โจทย์',[['teacher_code','FK'],['day','1-5'],['period_from','int'],['period_to','int']],['teacher']],
+ ['room','ไฟล์โจทย์',[['code','PK เช่น COM-01'],['type','lecture|computer|lab'],['capacity','int']],['course','placement']],
+ ['class_group','ไฟล์โจทย์',[['code','PK'],['students','int']],['teaching_item']],
+ ['course','ไฟล์โจทย์',[['code','PK'],['name','text'],['t','int ท'],['p','int ป'],['n','int น'],['practice_room_type','FK/type']],['room','teaching_item']],
+ ['request','ไฟล์โจทย์',[['text_th','ข้อความเดิม'],['teacher_code','FK null'],['kind','must|try|noop'],['rule','JSON'],['confirmed','bool']],['teacher']],
+ ['teaching_item','ไฟล์โจทย์',[['code','PK เช่น S0007'],['course_code','FK'],['teacher_code','FK'],['group_codes','FK[]']],['course','teacher','class_group','session']],
+ ['session','ผลลัพธ์',[['item_code','FK'],['kind','theory|practice'],['periods','int']],['teaching_item','placement']],
+ ['placement','ผลลัพธ์',[['session_id','FK'],['day','1-5'],['start_period','int'],['room_code','FK']],['session','room']],
+ ['run','ผลลัพธ์',[['id','PK'],['seed','int'],['status','queued..cancelled'],['hard_violations','int'],['penalty','number'],['iterations','int'],['elapsed_ms','int']],['placement']],
+ ['import_batch','ระบบ',[['id','PK'],['sha256','text'],['report','JSON'],['confirmed','bool']],['teacher','room','class_group','course','teaching_item']],
+ ['rule_set','ระบบ',[['id','R-xx'],['type','hard|soft'],['params','JSON'],['enabled','bool'],['weight','number']],['run']],
+ ['user','ระบบ',[['username','uk'],['password_hash','argon2'],['role','admin|teacher|student']],['teacher','class_group']],
+ ['audit_log','ระบบ',[['at','timestamp'],['actor','FK'],['action','text']],['user']],
+ ['compare_result','ผลลัพธ์',[['run_baseline','FK'],['run_team','FK'],['seed','int']],['run']]
+);
+RELS.length=0;
+RELS.push(
+ ['session n ── 1 teaching_item','รายการสอนหนึ่งรายการมีหนึ่งหรือสองครั้งที่ต้องจัด ตามท-ป-น'],
+ ['placement n ── 1 session','หนึ่งครั้งที่จัดมีวัน คาบเริ่ม และห้องเดียว ตารางครู ห้อง และกลุ่มดึงจากตารางนี้ จึงขัดกันเองไม่ได้'],
+ ['request n ── 0..1 teacher','คำขอที่อ้างถึงครูที่ไม่มีในข้อมูลถูกจัดเป็น noop พร้อมเหตุผล'],
+ ['run 1 ── n placement','แต่ละ run เก็บ seed และผลของตัวเอง เปรียบเทียบสอง run ได้'],
+ ['import_batch ── confirmed','ข้อมูลถูกใช้เมื่อผู้ใช้กดยืนยันเท่านั้น']
+);
+for(const k of Object.keys(CONTRACT))delete CONTRACT[k];
+CONTRACT.problem=`{
+  "schemaVersion": 2,
+  "teachers": [{"code":"TIT02","name":"ครูจิราพร","dept":"IT","maxPerDay":6}],
+  "unavailable": [{"teacher":"TIT02","day":3,"from":5,"to":8}],
+  "rooms": [{"code":"COM-01","type":"computer","capacity":40}],
+  "groups": [{"code":"G101","students":32}],
+  "courses": [{"code":"C-1101","t":1,"p":4,"n":3,"practiceRoomType":"computer"}],
+  "items": [{"code":"S0007","course":"C-1101","teacher":"TIT02","groups":["G101"]}],
+  "requests": [{"text":"ครูจิราพร ถ้าเลี่ยงได้ไม่สอนคาบแรก","teacher":"TIT02","kind":"try","rule":{"notPeriod":1}}]
+}`;
+CONTRACT.solution=`{
+  "schemaVersion": 2,
+  "runId": "run_ex",
+  "seed": 12345,
+  "status": "verified",
+  "sessions": [
+    {"item":"S0007","kind":"theory","day":1,"start":1,"periods":1,"room":"LR-02"},
+    {"item":"S0007","kind":"practice","day":5,"start":1,"periods":4,"room":"COM-01"}
+  ],
+  "check": {"placed":2,"of":2,"conflicts":{"teacher":0,"room":0,"group":0},"otherViolations":0,"penalty":0,"elapsedMs":0}
+}`;
+CONTRACT.error=`{
+  "code": "E-IMP-014",
+  "message": "รหัสครูซ้ำในแผ่นงาน \\"ครู\\"",
+  "details": [{"sheet":"ครู","row":7,"problem":"รหัส TIT02 ซ้ำกับแถว 3","fix":"เปลี่ยนรหัสแถว 7 ให้ไม่ซ้ำ"}]
+}`;
+CONTRACT.export=`แผ่นงาน: ตารางสอน   (ชื่อต้องตรงตัวอักษร)
+แถวแรก: รหัสรายการสอน | ประเภท | วัน | คาบเริ่ม | จำนวนคาบ | รหัสห้อง
+
+S0007 | ทฤษฎี  | จันทร์ | 1 | 1 | LR-02
+S0007 | ปฏิบัติ | ศุกร์  | 1 | 4 | COM-01
+
+หนึ่งแถว = หนึ่งครั้งที่จัด หนึ่งรายการสอนมี 1 หรือ 2 แถว
+รูปแบบจริงต้องตรวจจากไฟล์ตัวอย่างของกรรมการ (ยังไม่ได้รับ)`;
+/* ADR เพิ่ม */
+ADRS.push(
+ ['ADR-11','ข้อเสนอ','คำขอพิเศษ: ตัวอ่านแบบกฎเป็นหลัก AI ภาษาเป็นตัวเสริม','โจทย์อนุญาตให้ใช้ AI ช่วยอ่าน แต่ต้องมีฟอร์มสำรอง ตัวอ่านแบบกฎในเครื่องจับรูปแบบ "ครู… ไม่สอน… คาบ…" ได้ก่อน','ครอบคลุมสำนวนได้น้อยกว่า AI จึงมีฟอร์ม และผู้ใช้ต้องยืนยันทุกข้อ ไม่พึ่งเน็ตในวันแข่ง'],
+ ['ADR-12','ข้อเสนอ','solver หยุดด้วยจำนวนรอบ ไม่ใช้เวลา','เพื่อให้ seed เดิมได้ผลเดิม และเช็กการยกเลิกทุกช่วงรอบ','เครื่องช้า/เร็วต่างกันใช้เวลาต่างกัน แต่ผลต้องเท่ากัน จึงตั้งเพดานรอบตามขนาดงาน และแสดงเวลาจริงเป็นข้อมูลประกอบ'],
+ ['ADR-13','ข้อเสนอ','เปรียบเทียบด้วยการรันจริงสองวิธี','หน้า 5 รันวิธีพื้นฐาน (ช่องแรกที่ว่าง) และวิธีของทีมบนข้อมูลและ seed เดียวกัน','ใช้เวลารันเพิ่ม ต้องจำกัดขนาดข้อมูลที่เทียบ แต่ตัวเลขตรวจสอบได้จริง']
+);
+ROADMAP.length=0;
+ROADMAP.push(
+ {p:'P0',t:'ครบ 6 หน้าแบบพอใช้ และออนไลน์',s:'โจทย์แนะนำ: ทำครบทุกหน้าก่อน (83 คะแนน + ออนไลน์ 2)',items:['หน้า 1 นำเข้า + ตรวจครบในครั้งเดียว + ยืนยัน','หน้า 3 จัดตาราง (CSP) ที่ชนเป็น 0 ชุดทดลอง และปุ่มยกเลิก/seed','หน้า 4 ดูตาราง 3 มุมมอง','หน้า 2 คำขอพิเศษ (ตัวอ่านแบบกฎ + ฟอร์ม)','หน้า 6 ส่งออก Excel ตามภาคผนวก + PDF','ขึ้นออนไลน์ ใช้ได้บนมือถือ']},
+ {p:'P1',t:'ปรับทีละหน้า เริ่มจากหน้าที่คะแนนสูง',s:'หน้า 3 (25) → หน้า 4 (23) → หน้า 5 (16)',items:['ชุดใหญ่ ≈ 600 รายการไม่ค้าง','GA ลดคะแนนโทษ และหน้า 5 เปรียบเทียบกับวิธีพื้นฐาน','คำอธิบายลำดับการจัดวิชา','ไฟล์ตัวอย่าง 3 ขนาด และไฟล์ข้อมูลผิดสำหรับทดสอบ']},
+ {p:'P2',t:'ถ้ามีเวลา',s:'ตัดก่อนเป็นอันดับแรกถ้าเวลาไม่พอ',items:['AI ภาษาช่วยอ่านคำขอ','ลากวางปรับมือ','หน้า teacher / student','GA หลาย worker']}
+);
+TARGETS.length=0;
+TARGETS.push(['นำเข้าและตรวจชุดหลัก (12 กลุ่ม)','≤ 3 วินาที'],['จัดชุดทดลอง (4 กลุ่ม)','≤ 10 วินาที'],['จัดชุดใหญ่ ≈ 600 รายการ','ไม่ค้าง มีเพดานรอบ'],['ยกเลิกแล้วหยุดจริง','≤ 2 วินาที'],['เปิดหน้าตารางหลังมีผล','≤ 300 ms']);
+RISKS.push(['ไม่มีไฟล์ตัวอย่างรูปแบบส่งออก','ขอไฟล์ "4_ตัวอย่างไฟล์ตารางสอนที่ต้องส่งออก.xlsx" จากกรรมการ/โฟลเดอร์ก่อนเขียนส่วนส่งออก ถ้ายังไม่มีให้ใช้รูปแบบตามภาคผนวกและเขียนเทสต์ round-trip'],['ชุดใหญ่จัดไม่ครบด้วย CSP อย่างเดียว','เริ่มจากวิชาที่จำกัดมากที่สุดก่อน (MRV) แล้วใช้การซ่อมด้วย GA/local search ภายในเพดานรอบ']);
+const PAGES=[
+ {n:1,t:'นำเข้าข้อมูล',p:11,m:'Import · Validator · Templates',show:'อัปโหลด Excel · แม่แบบเปล่า · ตัวอย่าง 3 ขนาด · สรุปจำนวนที่อ่านได้ · รายงานข้อผิดทั้งหมด (แผ่นงาน แถว สิ่งที่ผิด วิธีแก้) · ปุ่มยืนยันก่อนใช้',pass:'ไฟล์ใหม่ผ่าน ไฟล์ที่ใส่ข้อมูลผิด (รหัสครูซ้ำ กลุ่มไม่มีห้องจุพอ) ถูกรายงานครบในครั้งเดียว',risk:'ต้องตรวจให้ครบทุกชนิดข้อผิด ไม่หยุดที่ข้อแรก'},
+ {n:2,t:'คำขอพิเศษ',p:4,m:'Requests · Parser · Form',show:'ข้อความไทยคู่กับสิ่งที่ระบบเข้าใจ เช่น "ครูจิราพร ถ้าเลี่ยงได้ไม่สอนคาบแรก" → TIT02 / ไม่สอนคาบ 1 / ทำถ้าทำได้ · 3 แบบ · แก้ ยืนยัน เพิ่มเอง · ฟอร์มสำรอง',pass:'ตีความถูกเกือบทุกข้อ เพิ่มคำขอใหม่ได้โดยไม่แก้โค้ด',risk:'คำขอที่อ้างครูไม่มีในข้อมูลต้องเป็น "ไม่ต้องทำอะไรเพิ่ม" พร้อมเหตุผล'},
+ {n:3,t:'จัดตาราง',p:25,m:'Solver · Verifier · Runs · SSE',show:'ปุ่มจัด · แถบความคืบหน้า · ยกเลิก · ช่อง seed · จัดครบกี่จากกี่ · ชนกี่จุด (ครู ห้อง กลุ่ม) · ผิดกฎอื่น · คะแนนโทษ · เวลา · อธิบายลำดับที่จัด',pass:'ชนเป็น 0 จัดครบทุกรายการ ชุดใหญ่ไม่ค้าง seed เดิมได้ผลเดิม ยกเลิกแล้วจัดใหม่ได้ ถ้าจัดไม่ได้บอกเหตุผล',risk:'หน้านี้คะแนนสูงสุด ทำให้เสร็จและเสถียรก่อนปรับหน้าอื่น'},
+ {n:4,t:'ดูตาราง',p:23,m:'Views · TimetableGrid',show:'3 มุมมอง (กลุ่ม ครู ห้อง) · ค้นหา · วันเป็นคอลัมน์ คาบเป็นแถว · ชื่อวิชา ทฤษฎี/ปฏิบัติ ห้อง ครู · วิชาซ้อนกันแสดงทั้งคู่ · คาบรวมต่อสัปดาห์',pass:'จุดที่กรรมการรู้คำตอบถูกต้อง เช่น ครูไม่สะดวกบ่ายวันหนึ่งต้องไม่มีสอน',risk:'ตารางดึงจากข้อมูลการจัดตารางเดียวกับที่ตรวจ ห้ามคำนวณซ้ำฝั่งหน้าเว็บ'},
+ {n:5,t:'ผลการใช้ AI',p:16,m:'Compare · Explain',show:'ตารางเปรียบเทียบวิธีพื้นฐานกับวิธีของทีม ≥ 3 เรื่อง (จุดที่ชน คะแนนโทษ เวลา) · อธิบายวิธีของทีม ใช้ AI ตรงไหน ตั้งค่าอะไร',pass:'วิธีของทีมดีกว่าจริงเป็นตัวเลข และกดซ้ำด้วย seed เดิมได้ผลเดิม',risk:'ตัวเลขต้องมาจากการรันจริง ห้ามพิมพ์เอง'},
+ {n:6,t:'สรุปและส่งออก',p:4,m:'Summary · Export',show:'ห้องถูกใช้กี่ % · ครูสอนกี่คาบ · กลุ่มมีคาบว่างกี่คาบ · ผลคำขอพิเศษทีละข้อ · PDF ตารางพิมพ์ · Excel ตามภาคผนวก',pass:'ไฟล์ Excel ตรงรูปแบบทุกตัวอักษรและผ่านตัวตรวจของกรรมการ',risk:'ยังไม่ได้ไฟล์ตัวอย่างรูปแบบส่งออก (ดูหมวดความเสี่ยง)'}
+];
+
+DETAIL.m_imp[0]='อ่านทั้ง 7 แผ่นงาน ตรวจทุกข้อผิดในครั้งเดียว (แผ่นงาน แถว สิ่งที่ผิด วิธีแก้) ยังไม่ใช้ข้อมูลจนกว่าผู้ใช้กดยืนยัน มีแม่แบบเปล่าและตัวอย่าง 3 ขนาด';
+DETAIL.m_rules[0]='เก็บกฎ rules.json และคำขอพิเศษ (must / try / noop) ตัวอ่านแบบกฎในเครื่องเป็นหลัก AI ภาษาเป็นตัวเสริม มีฟอร์มกรอกเอง';
+DETAIL.m_runs[0]='สั่งจัด รับ seed ยกเลิกได้ ส่งความคืบหน้าจริงผ่าน SSE และตอบผลตรวจ จำนวนที่จัดครบ ชน คะแนนโทษ เวลา';
+DETAIL.m_exp[0]='ส่งออก Excel ตามภาคผนวก (แผ่นงาน "ตารางสอน" 6 คอลัมน์ ตรงตัวอักษร) และ PDF ตารางพิมพ์';
+FAILS.push(['ผู้ใช้กดยกเลิกกลางคัน','solver เช็กสัญญาณทุกช่วงรอบ หยุดแล้วเก็บ best-so-far สถานะ cancelled จัดใหม่ได้ทันที'],['ถึงเพดานรอบแต่ยังชนอยู่','ไม่ประกาศ verified ตอบสถานะ failed หรือ infeasible พร้อมรายการที่ชนและกฎที่เกี่ยว ไม่ค้าง'],['ไฟล์ตัวอย่างจากกรรมการต่างจากโครงที่คาด','ตัวนำเข้ารายงานแผ่นงานและแถวที่อ่านไม่ได้ทั้งหมด ไม่เดา']);
+
+/* ---------- APP: utilities, overview, architecture, pipeline ---------- */
+(function(){
+'use strict';
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS='http://www.w3.org/2000/svg';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function head(title,intro){return `<div class="vh"><h2>${title}</h2><p>${intro}</p></div>`}
+const state={view:'overview',archVisible:false};
+
+/* ===== overview ===== */
+function viewOverview(){
+  const flowNodes=[['ไฟล์โจทย์','xlsx · json'],['ทำให้เป็นมาตรฐาน','Zod · rules'],['Solver','CSP + GA'],['Verifier','ตรวจอิสระ'],['ตารางที่ verified','ดู · ส่งออก']];
+  const fx=[6,160,314,468,622];
+  const flow=`<svg class="hero-flow" viewBox="0 0 760 104" role="img" aria-label="ลำดับการทำงาน: ไฟล์โจทย์ ทำให้เป็นมาตรฐาน Solver Verifier ตารางที่ verified">
+    <path class="bl" d="M6,52 H742" fill="none"/>
+    ${[0,-1.7,-3.4].map(b=>`<circle class="pk" r="4" cy="0" cx="0"><animateMotion dur="5s" repeatCount="indefinite" begin="${b}s" path="M6,52 H742"/></circle>`).join('')}
+    ${flowNodes.map((n,i)=>`<rect x="${fx[i]}" y="26" width="120" height="52" rx="14"/><text class="t" x="${fx[i]+12}" y="49">${n[0]}</text><text class="s" x="${fx[i]+12}" y="66">${n[1]}</text>`).join('')}
+  </svg>`;
+  const chips=['React 18','TypeScript','Vite','Motion','Node 22','Express 5','PostgreSQL 16','worker_threads','ExcelJS','Puppeteer'].map(x=>`<span class="pill">${x}</span>`).join('');
+  const rb=RUBRIC.map((r,i)=>`<div class="rb" tabindex="0" data-i="${i}"><span>${r.n}</span><div class="bar"><i style="--w:${r.p/25*100}%;animation-delay:${i*.08}s"></i></div><b>${r.p}</b></div>`).join('');
+  const fz=FACTS.map(f=>`<div class="card"><div class="k">${f[0]}</div><div class="t mono" style="font-size:22px">${f[1]}</div><div class="m">${f[2]}</div></div>`).join('');
+  const mods=MODS_OVERVIEW.map(m=>`<div class="card glass"><div class="k">${m.k}</div><div class="t">${m.t}</div><div class="p">${m.p}</div></div>`).join('');
+  return `<div class="glass pad"><div class="eyebrow">System design · v1 · 5 พ.ย. 2569</div><h1>Slotline</h1>
+    <p class="lead">ระบบจัดตารางสอนอัตโนมัติที่เริ่มจากเงื่อนไขเป็นข้อมูล จัดตารางด้วย CSP ร่วมกับ GA แล้วให้ตัวตรวจอิสระยืนยันทุกตาราง ก่อนเปิดให้นักเรียนและครูดู</p>
+    ${flow}<div class="chips" style="margin-top:12px">${chips}</div></div>
+  <div class="sec">เกณฑ์ให้คะแนน 100 คะแนน (หน้า 1–6 รวม 83 · ออนไลน์ 2 · นำเสนอ 15)</div>
+  <div class="panel"><div class="glass pad rubric" id="rubric">${rb}</div>
+    <div class="glass pad" id="rb-d" aria-live="polite"></div></div>
+  <div class="sec">ขนาดงานตามโจทย์</div>
+  <div class="grid g4">${fz}</div>
+  <div class="card"><div class="m" style="margin:0">ข้อมูลจริงมาจากกรรมการ ตัวเลขจำนวนข้อมูลจึงยังไม่ทราบ ระบบตรวจความเป็นไปได้ (ชั่วโมงรวม ความจุห้อง คาบสูงสุดต่อวัน) หลังนำเข้าทุกครั้ง</div></div>
+  <div class="sec">สิ่งที่ออกแบบให้ต่างจากงานจัดตารางทั่วไป</div>
+  <div class="grid g4">${mods}</div>`;
+}
+function initOverview(root){
+  const rows=$$('.rb',root),box=$('#rb-d',root);
+  const show=i=>{const r=RUBRIC[i];box.innerHTML=`<div class="eyebrow">${r.p} คะแนน</div><h3 style="font-size:19px;line-height:1.4;margin:4px 0 8px">${r.n}</h3><p style="color:var(--ink-2)">${r.d}</p><p class="mono" style="margin-top:12px;color:var(--accent-2)">ส่วนที่รับผิดชอบ: ${r.m}</p>`};
+  rows.forEach(r=>{const i=+r.dataset.i;['mouseenter','focus'].forEach(ev=>r.addEventListener(ev,()=>show(i)))});
+  show(0);
+}
+
+/* ===== architecture ===== */
+const st={scn:'all',step:0,hv:null,pin:null,playing:true};
+const EB={},NB={};
+let timer=null;
+function viewArch(){
+  return head('สถาปัตยกรรมระบบ','ชี้หรือแตะกล่องเพื่อดูหน้าที่และราคาที่จ่าย เลือกสถานการณ์เพื่อดูข้อมูลไหลทีละขั้น เส้นประที่เคลื่อนไหวคือทิศทางของข้อมูล')+
+  `<div class="glass diagram"><svg id="arch" viewBox="0 0 1100 500" role="group" aria-label="ไดอะแกรมสถาปัตยกรรมระบบ"></svg></div>
+  <div class="panel"><div class="glass pad"><div class="sec" style="margin:0 0 8px">สถานการณ์</div>
+    <div class="tools" id="scn"></div>
+    <div class="tools" style="margin-top:10px"><button class="btn" id="prev">ก่อนหน้า</button><button class="btn pri" id="play">หยุด</button><button class="btn" id="next">ถัดไป</button></div>
+    <ol class="steps" id="steps" aria-live="polite"></ol></div>
+    <div class="glass pad" id="det" aria-live="polite"></div></div>`;
+}
+function buildArch(root){
+  const svg=$('#arch',root);
+  svg.innerHTML='<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L9,5 L0,9 z" fill="context-stroke"/></marker></defs>';
+  [[16,'ผู้ใช้'],[210,'ขอบระบบ'],[710,'งานเบื้องหลัง'],[930,'ข้อมูล']].forEach(([x,t])=>{el('text',{x,y:14,class:'col'},svg).textContent=t});
+  EDGES.forEach(([id,from,to,d],i)=>{
+    const g=el('g',{class:'edge'},svg);g.dataset.s='on';
+    el('path',{d,class:'line','marker-end':'url(#ah)',id:'ep-'+id},g);
+    const c=el('circle',{r:3.6,class:'pk',cx:0,cy:0},g);
+    const am=el('animateMotion',{dur:(2.6+(i%4)*.4)+'s',repeatCount:'indefinite',begin:'-'+(i*.37).toFixed(2)+'s'},c);
+    el('mpath',{href:'#ep-'+id},am);
+    EB[id]={id,from,to,g};
+  });
+  ELABELS.forEach(([x,y,t])=>{el('text',{x,y,class:'elab'},svg).textContent=t});
+  NODES.forEach(([id,x,y,w,h,t,s,kind,parent])=>{
+    const g=el('g',{class:'nd k-'+kind,tabindex:0,role:'button','aria-label':t+' '+s},svg);
+    el('rect',{x,y,width:w,height:h,rx:kind==='core'?18:(kind==='mod'?10:13)},g);
+    const ty=kind==='core'?y+20:y+h/2-3, sy=kind==='core'?y+38:ty+15;
+    const tx=kind==='core'?x+14:x+12;
+    const a=el('text',{x:tx,y:ty,class:'t'},g);a.textContent=t;
+    const b=el('text',{x:tx,y:sy,class:'s'},g);b.textContent=s;
+    NB[id]={g,parent,kind,t,s};
+    g.addEventListener('mouseenter',()=>{st.hv=id;paint()});
+    g.addEventListener('mouseleave',()=>{st.hv=null;paint()});
+    g.addEventListener('focus',()=>{st.hv=id;paint()});
+    g.addEventListener('blur',()=>{st.hv=null;paint()});
+    const tog=e=>{e.stopPropagation();st.pin=st.pin===id?null:id;paint()};
+    g.addEventListener('click',tog);
+    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog(e)}});
+  });
+  svg.addEventListener('click',()=>{st.pin=null;paint()});
+  if(reduce)svg.pauseAnimations();
+  const box=$('#scn',root);
+  Object.keys(SCN).forEach(k=>{
+    const b=document.createElement('button');b.className='btn';b.textContent=SCN[k].name;b.dataset.k=k;
+    b.addEventListener('click',()=>{st.scn=k;st.step=0;st.playing=!reduce;paint();sync()});
+    box.appendChild(b);
+  });
+  $('#prev',root).addEventListener('click',()=>move(-1));
+  $('#next',root).addEventListener('click',()=>move(1));
+  $('#play',root).addEventListener('click',()=>{st.playing=!st.playing;paint();sync()});
+  st.playing=!reduce;paint();sync();
+}
+function move(d){if(st.scn==='all')return;const L=SCN[st.scn].steps.length;st.step=(st.step+d+L)%L;paint()}
+function sync(){clearInterval(timer);timer=null;if(st.playing&&st.scn!=='all'&&state.archVisible&&!reduce)timer=setInterval(()=>move(1),2300)}
+function paint(){
+  const f=st.hv||st.pin;const hot=new Set(),on=new Set(),nodes=new Set();
+  if(f){const eid=NB[f].parent||f;EDGES.forEach(([id,a,b])=>{if(a===eid||b===eid){on.add(id);nodes.add(a);nodes.add(b)}});nodes.add(f);nodes.add(eid)}
+  else if(st.scn==='all'){EDGES.forEach(e=>on.add(e[0]));NODES.forEach(n=>nodes.add(n[0]))}
+  else{SCN[st.scn].steps.forEach((s,i)=>{const e=EB[s[0]];if(i<st.step)on.add(s[0]);if(i===st.step)hot.add(s[0]);if(i<=st.step){nodes.add(e.from);nodes.add(e.to);(s[2]||[]).forEach(m=>nodes.add(m))}})}
+  EDGES.forEach(([id])=>{EB[id].g.dataset.s=hot.has(id)?'hot':on.has(id)?'on':'dim'});
+  Object.keys(NB).forEach(id=>{NB[id].g.classList.toggle('dim',!nodes.has(id));NB[id].g.classList.toggle('pin',st.pin===id)});
+  $$('#scn .btn').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.k===st.scn)));
+  const pl=$('#play');if(pl){pl.textContent=st.playing?'หยุด':'เล่น';pl.disabled=st.scn==='all'}
+  [$('#prev'),$('#next')].forEach(b=>{if(b)b.disabled=st.scn==='all'});
+  const ol=$('#steps');
+  if(st.scn==='all'){ol.innerHTML='<li style="display:block">เลือกสถานการณ์ด้านบนเพื่อดูข้อมูลไหลทีละขั้น หรือชี้กล่องใดก็ได้เพื่อดูเส้นทางที่เกี่ยวข้อง</li>';ol.style.counterReset='none'}
+  else{ol.innerHTML=SCN[st.scn].steps.map((s,i)=>`<li class="${i===st.step?'on':i<st.step?'done':''}">${s[1]}</li>`).join('')}
+  let show=f;
+  if(!show&&st.scn!=='all')show=EB[SCN[st.scn].steps[st.step][0]].to;
+  const d=$('#det');
+  if(!show){d.innerHTML='<div class="eyebrow">รายละเอียด</div><p style="color:var(--ink-2);margin-top:6px">ชี้หรือแตะกล่องในไดอะแกรมเพื่อดูหน้าที่ของแต่ละส่วน</p>'}
+  else{const n=NB[show],x=DETAIL[show];d.innerHTML=`<div class="eyebrow">${KIND[n.kind]}</div><h3 style="font-size:19px;line-height:1.4;margin:4px 0 8px">${n.t}</h3><p style="color:var(--ink-2)">${x[0]}</p><p style="margin-top:10px;color:var(--ink-3);font-size:13.5px"><b>ข้อควรรู้:</b> ${x[1]}</p>`}
+}
+
+/* ===== pipeline & solver ===== */
+let simId=0;
+function curvePath(){
+  const pts=[];for(let i=0;i<=80;i++){const x=44+i*(456/80);const v=.05+.95*Math.exp(-i/14)+Math.sin(i*1.7)*.012*(1-i/80);pts.push((i?'L':'M')+x.toFixed(1)+','+(184-160*Math.max(v,.03)).toFixed(1))}
+  return pts.join(' ');
+}
+function viewPipeline(){
+  const stg=STAGES.map((s,i)=>`<div class="stg" data-i="${i}"><div class="n">ขั้น ${s.n}</div><div class="t">${s.t}</div><div class="p">${s.p}</div><div class="a">${s.a}</div></div>`).join('');
+  const sv=SOLVE_STEPS.map(s=>`<li><div><b>${s.t}</b><br><span style="color:var(--ink-3)">${s.p}</span></div></li>`).join('');
+  const fl=FAILS.map(f=>`<tr><td>${f[0]}</td><td>${f[1]}</td></tr>`).join('');
+  return head('Pipeline และ Solver','ข้อมูลผ่าน 7 ขั้น ตารางจะเปิดให้ผู้ใช้ดูได้เมื่อผ่านขั้นที่ 6 เท่านั้น กดจำลองเพื่อดูลำดับ')+
+  `<div class="glass pad"><div class="tools" style="margin-bottom:14px"><button class="btn pri" id="sim">จำลองลำดับ</button><span class="pill warn">จำลองลำดับขั้นตอนเท่านั้น ไม่ใช่การรันจริง</span></div>
+   <div class="stage" id="stages">${stg}</div></div>
+  <div class="panel"><div class="glass pad"><div class="sec" style="margin:0 0 6px">ลักษณะกราฟคะแนนที่หน้าอธิบายอัลกอริทึมจะแสดง</div>
+    <svg class="chart" viewBox="0 0 520 220" role="img" aria-label="กราฟตัวอย่างคะแนนรวมที่ลดลงตามรอบการปรับปรุง">
+      ${[0,1,2,3].map(i=>`<line class="gr" x1="44" x2="500" y1="${24+i*53.3}" y2="${24+i*53.3}"/>`).join('')}
+      <line x1="44" x2="500" y1="184" y2="184" stroke="var(--line-2)"/><line x1="44" x2="44" y1="16" y2="184" stroke="var(--line-2)"/>
+      <line x1="${44+22*5.7}" x2="${44+22*5.7}" y1="16" y2="184" stroke="var(--hot)" stroke-dasharray="4 4"/>
+      <text x="${44+22*5.7+6}" y="30">กฎเด็ดขาด = 0</text>
+      <path id="curve" class="ln" pathLength="1" d="${curvePath()}" style="stroke-dasharray:1;stroke-dashoffset:${reduce?0:1}"/>
+      <text x="44" y="204">รอบการปรับปรุง →</text><text x="360" y="204">คะแนนรวม (ต่ำ = ดี)</text>
+    </svg>
+    <p class="m" style="font-size:12.5px;color:var(--ink-3)">ภาพจำลองรูปแบบกราฟ ไม่ใช่ผลจริง หน้าจริงจะวาดจากประวัติคะแนนที่ solver บันทึกไว้ในแต่ละ run</p></div>
+   <div class="glass pad"><div class="sec" style="margin:0 0 6px">ขั้นที่ 5 แยกเป็น 7 ช่วง</div><ol class="steps">${sv}</ol>
+    <div class="card" style="padding:12px 0 0"><div class="k">ฟังก์ชันประเมิน</div><div class="p mono" style="margin-top:4px">score = 1,000,000 × hard + Σ (น้ำหนัก × soft)</div><div class="m">เผยแพร่ได้เมื่อ hard = 0 เท่านั้น</div></div></div></div>
+  <div class="sec">เมื่อเกิดความผิดพลาด ระบบทำอะไร</div>
+  <div class="glass pad scroll"><table><thead><tr><th>เหตุการณ์</th><th>สิ่งที่ระบบทำ</th></tr></thead><tbody>${fl}</tbody></table></div>`;
+}
+function initPipeline(root){
+  const btn=$('#sim',root),cards=$$('.stg',root),curve=$('#curve',root);
+  const setAll=v=>cards.forEach(c=>{if(v)c.dataset.st=v;else delete c.dataset.st});
+  btn.addEventListener('click',async()=>{
+    const my=++simId;setAll(null);
+    curve.style.transition='none';curve.style.strokeDashoffset=reduce?0:1;void curve.getBoundingClientRect();
+    btn.disabled=true;
+    for(let i=0;i<cards.length;i++){
+      cards[i].dataset.st='run';
+      if(i===4&&!reduce){curve.style.transition='stroke-dashoffset 3s linear';curve.style.strokeDashoffset=0;await sleep(3100)}
+      else await sleep(reduce?150:750);
+      if(my!==simId)return;
+      cards[i].dataset.st='ok';
+    }
+    curve.style.strokeDashoffset=0;btn.disabled=false;btn.textContent='จำลองอีกครั้ง';
+  });
+}
+
+
+/* ===== pages (6 หน้าที่กรรมการตรวจ) ===== */
+function viewPages(){
+  const cards=PAGES.map(g=>`<div class="card glass pg" tabindex="0" data-n="${g.n}"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span class="pill solid">หน้า ${g.n}</span><b class="mono" style="font-size:20px">${g.p} <span style="font-size:12px;font-weight:500;color:var(--ink-3)">คะแนน</span></b></div>
+    <div class="t" style="margin-top:8px">${g.t}</div><div class="k mono" style="margin:2px 0 8px">${g.m}</div>
+    <div class="p"><b>ต้องแสดง:</b> ${g.show}</div><div class="p" style="margin-top:8px"><b>ผ่านเมื่อ:</b> ${g.pass}</div><div class="m"><b>ระวัง:</b> ${g.risk}</div></div>`).join('');
+  const order=PAGES.slice().sort((a,b)=>b.p-a.p);
+  const bars=order.map(g=>`<div class="rb" data-n="${g.n}"><span>หน้า ${g.n} ${g.t}</span><div class="bar"><i style="--w:${g.p/25*100}%"></i></div><b>${g.p}</b></div>`).join('');
+  return head('6 หน้าที่กรรมการกดตรวจเอง','รวม 83 คะแนน บวกออนไลน์ 2 และนำเสนอ 15 โจทย์แนะนำให้ทำครบทั้ง 6 หน้าแบบพอใช้และขึ้นออนไลน์ก่อน แล้วค่อยปรับทีละหน้าตามน้ำหนักคะแนน')+
+  `<div class="glass pad"><div class="sec" style="margin:0 0 10px">น้ำหนักคะแนนของแต่ละหน้า (เรียงจากมากไปน้อย)</div><div class="rubric">${bars}</div></div>
+  <div class="sec">รายละเอียดทีละหน้า</div><div class="grid g3">${cards}</div>
+  <div class="sec">ลำดับการทำงานที่แนะนำ</div>
+  <div class="glass pad"><ol class="steps"><li><div><b>ครบ 6 หน้าแบบพอใช้</b><br><span style="color:var(--ink-3)">นำเข้า → จัดตาราง (ชนเป็น 0 บนชุดทดลอง) → ดูตาราง → ส่งออก Excel ก่อน แล้วค่อยทำคำขอพิเศษ และหน้า AI</span></div></li><li><div><b>ขึ้นออนไลน์</b><br><span style="color:var(--ink-3)">ตรวจว่าเปิดได้ทั้งคอมพิวเตอร์และมือถือ (2 คะแนน)</span></div></li><li><div><b>ปรับทีละหน้าตามคะแนน</b><br><span style="color:var(--ink-3)">หน้า 3 (25) → หน้า 4 (23) → หน้า 5 (16) → หน้า 1 (11)</span></div></li></ol></div>`;
+}
+function initPages(root){
+  const bars=$$('.rb',root),cards=$$('.pg',root);
+  const hl=n=>{cards.forEach(c=>c.classList.toggle('dim',n&&c.dataset.n!==n))};
+  bars.forEach(b=>{b.tabIndex=0;b.addEventListener('mouseenter',()=>hl(b.dataset.n));b.addEventListener('mouseleave',()=>hl(null));b.addEventListener('focus',()=>hl(b.dataset.n));b.addEventListener('blur',()=>hl(null))});
+}
+
+
+/* ===== rules ===== */
+function viewRules(){
+  const types=['ทั้งหมด','hard','soft'];
+  const oq=OPENQ.map((q,i)=>`<div class="card"><div class="k">คำถาม ${i+1}</div><div class="t">${q[0]}</div><div class="m">${q[1]}</div></div>`).join('');
+  return head('กฎและเงื่อนไข',`กฎทั้ง ${RULES.length} ข้ออยู่ในข้อมูล (rules.json) ไม่ใช่ในโค้ด กดแถวเพื่อดูพารามิเตอร์และวิธีที่ Verifier ตรวจ`)+
+  `<div class="glass pad"><div class="tools" id="rf" style="margin-bottom:12px">${types.map((t,i)=>`<button class="btn" data-t="${t}" aria-pressed="${i===0}">${t}</button>`).join('')}
+    <input id="rq" type="search" placeholder="ค้นหากฎ เช่น ครู ห้อง พัก" aria-label="ค้นหากฎ" style="font:inherit;padding:8px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--glass-hi);color:var(--ink);min-width:0;flex:1 1 180px">
+    <span class="pill mute" id="rc"></span></div>
+   <div class="scroll"><table><thead><tr><th>รหัส</th><th>ชื่อกฎ</th><th>ชนิด</th><th>ขอบเขต</th><th>ที่มา</th></tr></thead><tbody id="rb"></tbody></table></div></div>
+  <div class="sec">คำถามที่ต้องยืนยันกับกรรมการ</div>
+  <div class="grid g3">${oq}</div>
+  <div class="card"><div class="m" style="margin:0">ทุกข้อมีค่าตั้งต้นที่ปรับได้ ระบบจึงไม่ต้องหยุดรอคำตอบ แต่ผลลัพธ์ต้องระบุว่าใช้ค่าตั้งต้นข้อใด</div></div>`;
+}
+function initRules(root){
+  const tb=$('#rb',root),cnt=$('#rc',root),q=$('#rq',root);let t='ทั้งหมด';
+  function draw(){
+    const k=q.value.trim().toLowerCase();
+    const list=RULES.filter(r=>(t==='ทั้งหมด'||r[2]===t)&&(!k||r.join(' ').toLowerCase().includes(k)));
+    cnt.textContent=list.length+' / '+RULES.length+' ข้อ';
+    tb.innerHTML=list.map((r,i)=>`<tr class="rr" data-i="${i}" tabindex="0" style="cursor:pointer"><td class="mono">${r[0]}</td><td>${r[1]}</td><td><span class="pill ${r[2]==='hard'?'bad':'warn'}">${r[2]}</span></td><td>${r[3]}</td><td>${r[4]}</td></tr>
+    <tr class="rx" hidden><td colspan="5"><div class="grid g2"><div><div class="k">เกณฑ์ที่เกี่ยวข้อง</div><div class="mono">${r[5]}</div><div class="k" style="margin-top:10px">พารามิเตอร์</div><pre class="code">${esc(r[6])}</pre></div><div><div class="k">Verifier ตรวจอย่างไร</div><p>${r[7]}</p></div></div></td></tr>`).join('')||'<tr><td colspan="5">ไม่พบกฎที่ตรงกับคำค้น</td></tr>';
+  }
+  tb.addEventListener('click',e=>{const tr=e.target.closest('.rr');if(!tr)return;const x=tr.nextElementSibling;x.hidden=!x.hidden});
+  tb.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const tr=e.target.closest('.rr');if(tr){e.preventDefault();tr.nextElementSibling.hidden=!tr.nextElementSibling.hidden}}});
+  $('#rf',root).addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(!b)return;t=b.dataset.t;$$('#rf button',root).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));draw()});
+  q.addEventListener('input',draw);draw();
+}
+
+/* ===== data ===== */
+function copyText(text,note){
+  const done=()=>{note.textContent='คัดลอกแล้ว';setTimeout(()=>{note.textContent=''},1800)};
+  const fb=()=>{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();note.textContent=ok?'คัดลอกแล้ว':'เลือกข้อความแล้วคัดลอกเอง';setTimeout(()=>{note.textContent=''},2400)}catch(_){note.textContent='คัดลอกไม่ได้ ให้เลือกข้อความเอง'}};
+  try{navigator.clipboard.writeText(text).then(done,fb)}catch(_){fb()}
+}
+function viewData(){
+  const ents=ENTS.map((e,i)=>`<div class="card glass ent" data-n="${e[0]}" tabindex="0"><span class="pill mute">${e[1]}</span><h4>${e[0]}</h4>${e[2].map(f=>`<div class="f"><span>${f[0]}</span><em>${f[1]}</em></div>`).join('')}</div>`).join('');
+  const rels=RELS.map(r=>`<div class="card"><div class="k mono">${r[0]}</div><div class="m">${r[1]}</div></div>`).join('');
+  const tabs=Object.keys(CONTRACT);
+  const names={problem:'Problem (ข้อมูลเข้า)',solution:'Solution (ผลลัพธ์)',error:'Error (ข้อผิดพลาด)'};
+  return head('ข้อมูลและสัญญา','ชี้เอนทิตีเพื่อดูตารางที่เกี่ยวข้อง ส่วนสัญญา (contract) คือรูปแบบข้อมูลกลางที่ทุกส่วนต้องใช้ร่วมกัน')+
+  `<div class="grid g3" id="ents">${ents}</div>
+  <div class="sec">ความสัมพันธ์ที่สำคัญ</div><div class="grid g2">${rels}</div>
+  <div class="sec">สัญญาข้อมูล (packages/contract)</div>
+  <div class="glass pad"><div class="tools" style="margin-bottom:12px"><div class="tabs" id="ct">${tabs.map((t,i)=>`<button class="btn" data-k="${t}" aria-pressed="${i===0}">${names[t]||t}</button>`).join('')}</div><button class="btn" id="cc">คัดลอก</button><span class="copy-ok" id="cn" role="status"></span></div>
+   <span class="pill warn" style="margin-bottom:8px">ตัวอย่างรูปแบบ ตัวเลขเป็นค่าสมมติ</span>
+   <pre class="code" id="cp" style="margin-top:8px"></pre></div>`;
+}
+function initData(root){
+  const cards=$$('.ent',root);
+  const rel=n=>{const e=ENTS.find(x=>x[0]===n);return new Set([n,...(e?e[3]:[]),...ENTS.filter(x=>x[3].includes(n)).map(x=>x[0])])};
+  const on=n=>{const s=rel(n);cards.forEach(c=>{c.classList.toggle('dim',!s.has(c.dataset.n));c.classList.toggle('rel',c.dataset.n!==n&&s.has(c.dataset.n))})};
+  const off=()=>cards.forEach(c=>c.classList.remove('dim','rel'));
+  cards.forEach(c=>{c.addEventListener('mouseenter',()=>on(c.dataset.n));c.addEventListener('mouseleave',off);c.addEventListener('focus',()=>on(c.dataset.n));c.addEventListener('blur',off)});
+  let cur=Object.keys(CONTRACT)[0];const pre=$('#cp',root);
+  const show=()=>{pre.textContent=CONTRACT[cur]};show();
+  $('#ct',root).addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(!b)return;cur=b.dataset.k;$$('#ct button',root).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));show()});
+  $('#cc',root).addEventListener('click',()=>copyText(CONTRACT[cur],$('#cn',root)));
+}
+
+/* ===== stack ===== */
+function viewStack(){
+  const fe=STACK_FE.map(g=>`<div class="sec">${g.g}</div><div class="grid g3">${g.items.map(i=>`<div class="card glass"><div class="t">${i[0]}</div><div class="k">${i[1]}</div><div class="p">${i[2]}</div><div class="m"><b>ราคาที่จ่าย:</b> ${i[3]}</div></div>`).join('')}</div>`).join('');
+  const be=STACK_BE.map(i=>`<tr><td><b>${i[0]}</b></td><td>${i[1]}</td><td>${i[2]}</td></tr>`).join('');
+  return head('Tech Stack','ฝั่งหน้าเว็บใช้ React + TypeScript ฝั่ง API และ solver ใช้ Node + Express ตามที่กำหนด ส่วนเครื่องมืออื่นเป็นข้อเสนอพร้อมเหตุผลและราคาที่จ่าย')+
+  fe+`<div class="sec">ฝั่ง API และ Solver</div><div class="glass pad scroll"><table><thead><tr><th>เครื่องมือ</th><th>หน้าที่</th><th>เหตุผล</th></tr></thead><tbody>${be}</tbody></table></div>
+  <div class="card"><div class="m" style="margin:0">ไม่ใช้ Zustand หรือ Redux เพราะสถานะฝั่งเซิร์ฟเวอร์อยู่ใน TanStack Query และสถานะหน้าจอเล็กพอจะอยู่ใน React เอง ไม่เพิ่มไลบรารีโดยไม่จำเป็น (กติกา N15)</div></div>`;
+}
+
+/* ===== ops ===== */
+const LS='slotline-runbook-v1';
+function lsGet(){try{return JSON.parse(localStorage.getItem(LS)||'{}')}catch(_){return {}}}
+function lsSet(o){try{localStorage.setItem(LS,JSON.stringify(o))}catch(_){}}
+function viewOps(){
+  const sv=SERVICES.map(s=>`<div class="card glass"><div class="t mono">${s[0]}</div><div class="p">${s[1]}</div></div>`).join('');
+  const roles=ROLES.map(r=>`<tr><td>${r[0]}</td>${r.slice(1).map(c=>`<td>${c==='ไม่ได้'?'<span class="pill mute">ไม่ได้</span>':`<span class="pill">${c}</span>`}</td>`).join('')}</tr>`).join('');
+  const tg=TARGETS.map(t=>`<div class="card glass"><div class="k">${t[0]}</div><div class="t mono">${t[1]}</div></div>`).join('');
+  const rb=RUNBOOK.map((g,gi)=>`<div class="glass pad"><div class="k">${g.g}</div>${g.items.map((x,i)=>`<label class="check"><input type="checkbox" data-id="${gi}-${i}"><span>${x}</span></label>`).join('')}</div>`).join('');
+  const dots=Array.from({length:10},(_,i)=>`<i style="animation-delay:-${(i*.32).toFixed(2)}s"></i>`).join('');
+  return head('วันแข่งและการใช้งาน','บริการ 5 ตัวใน docker compose สิทธิ์ตามบทบาท เป้าหมายประสิทธิภาพ และรายการตรวจก่อนวันแข่ง (ติ๊กแล้วจดจำในเบราว์เซอร์นี้)')+
+  `<div class="grid g3">${sv}</div>
+  <div class="glass pad" style="margin-top:14px"><div class="k">การคัดลอกข้อมูลจากฐานหลักไปสำรอง (ภาพประกอบ)</div><div class="rep" aria-hidden="true">${dots}</div></div>
+  <div class="sec">สิทธิ์ตามบทบาท</div><div class="glass pad scroll"><table><thead><tr><th>การกระทำ</th><th>admin</th><th>ครู</th><th>นักเรียน</th></tr></thead><tbody>${roles}</tbody></table></div>
+  <div class="sec">เป้าหมายประสิทธิภาพ <span class="pill warn">เป้าหมายออกแบบ ยังไม่ได้วัด</span></div><div class="grid g3">${tg}</div>
+  <div class="sec">รายการตรวจ</div><div class="glass pad"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="k">ความคืบหน้า</span><b class="mono" id="rp">0%</b></div><div class="meter"><i id="rm"></i></div></div>
+  <div class="grid g2" style="margin-top:14px">${rb}</div>`;
+}
+function initOps(root){
+  const saved=lsGet();const boxes=$$('input[data-id]',root);
+  const upd=()=>{const n=boxes.filter(b=>b.checked).length,p=Math.round(n/boxes.length*100);$('#rp',root).textContent=p+'%';$('#rm',root).style.width=p+'%'};
+  boxes.forEach(b=>{b.checked=!!saved[b.dataset.id];b.addEventListener('change',()=>{const s=lsGet();s[b.dataset.id]=b.checked;lsSet(s);upd()})});
+  upd();
+}
+
+/* ===== decisions ===== */
+function viewDecisions(){
+  const ad=ADRS.map(a=>`<div class="card glass"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="pill mono">${a[0]}</span><span class="pill ${a[1]==='ตามที่กำหนด'?'solid':'warn'}">${a[1]}</span></div><div class="t" style="margin-top:8px">${a[2]}</div><div class="p">${a[3]}</div><div class="m"><b>ราคาที่จ่าย:</b> ${a[4]}</div></div>`).join('');
+  const rm=ROADMAP.map(r=>`<div class="card glass"><span class="pill solid">${r.p}</span><div class="t" style="margin-top:8px">${r.t}</div><div class="k">${r.s}</div><ul style="margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px">${r.items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('');
+  const rk=RISKS.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td></tr>`).join('');
+  return head('การตัดสินใจและแผน','ทุกการตัดสินใจระบุราคาที่จ่าย ข้อที่ "ตามที่กำหนด" มาจากโจทย์ ส่วน "ข้อเสนอ" ทีมเปลี่ยนได้ถ้ามีเหตุผลดีกว่า')+
+  `<div class="grid g2">${ad}</div><div class="sec">แผนงาน</div><div class="grid g3">${rm}</div>
+  <div class="sec">ความเสี่ยง</div><div class="glass pad scroll"><table><thead><tr><th>ความเสี่ยง</th><th>วิธีรับมือ</th></tr></thead><tbody>${rk}</tbody></table></div>`;
+}
+
+/* ===== ai-rules ===== */
+function viewAI(){
+  return head('กติกาสำหรับ AI ที่สร้างเว็บไซต์','ไฟล์นี้ให้ AI โมเดลเล็กอ่านก่อนทำงานทุกครั้ง มีข้อห้ามเด็ดขาด 20 ข้อ ข้อเท็จจริงของระบบ ลำดับการทำงาน และเงื่อนไขที่ต้องหยุดถาม')+
+  `<div class="glass pad"><div class="tools" style="margin-bottom:12px"><button class="btn pri" id="ac">คัดลอกทั้งไฟล์</button><span class="copy-ok" id="an" role="status"></span><span class="pill mute" id="al"></span></div><pre class="code" id="ap" style="max-height:70vh;overflow:auto;white-space:pre-wrap"></pre></div>`;
+}
+function initAI(root){
+  const md=(document.getElementById('rules-md').textContent||'').trim();
+  $('#ap',root).textContent=md;$('#al',root).textContent=md.split('\n').length+' บรรทัด';
+  $('#ac',root).addEventListener('click',()=>copyText(md,$('#an',root)));
+}
+
+/* ===== router ===== */
+const VIEWS={overview:[viewOverview,initOverview],pages:[viewPages,initPages],architecture:[viewArch,buildArch],pipeline:[viewPipeline,initPipeline],rules:[viewRules,initRules],data:[viewData,initData],stack:[viewStack,null],ops:[viewOps,initOps],decisions:[viewDecisions,null],'ai-rules':[viewAI,initAI]};
+const done=new Set();
+function route(){
+  let h=(location.hash||'').replace('#','');if(!VIEWS[h])h='overview';
+  state.view=h;
+  $$('.view').forEach(v=>{v.hidden=v.dataset.view!==h});
+  $$('#nav a').forEach(a=>{const on=a.dataset.go===h;a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  const sec=$(`.view[data-view="${h}"]`);
+  if(!done.has(h)){
+    sec.innerHTML=VIEWS[h][0]();
+    try{if(VIEWS[h][1])VIEWS[h][1](sec)}catch(e){console.error(e);sec.insertAdjacentHTML('beforeend','<div class="card"><div class="m">ส่วนโต้ตอบของหน้านี้โหลดไม่สำเร็จ</div></div>')}
+    done.add(h);
+  }
+  state.archVisible=h==='architecture';
+  if(done.has('architecture'))sync();
+  window.scrollTo(0,0);
+  document.title='Slotline System Design';
+}
+window.addEventListener('hashchange',route);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInterval(timer);timer=null}else sync()});
+route();
+})();
+
+
+</script>
+
+</body></html>

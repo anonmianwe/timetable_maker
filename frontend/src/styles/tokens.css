@@ -1,0 +1,117 @@
+/* Slotline — Design Tokens */
+:root, [data-theme="light"] {
+  --bg: #EAF2EC;
+  --glass: #FFFFFF99;
+  --glass-strong: #FFFFFFE0;
+  --ink: #0E2419;
+  --ink-2: #41574A;
+  --ink-3: #556B5D;
+  --line: #0F513226;
+  --line-strong: #0F5132B3;
+  --accent: #0F5132;
+  --accent-2: #1E7A4E;
+  --accent-soft: #1E7A4E1F;
+  --on-accent: #F2FAF5;
+  --amber: #F3C74A;
+  --on-amber: #1B1405;
+  --amber-text: #7A4E0B;
+  --amber-soft: #E8B23E33;
+  --danger: #A8321F;
+  --danger-soft: #B5382E1F;
+  --info: #1F5F8B;
+  --info-soft: #1F5F8B1F;
+  --side: #0B3324;
+  --side-2: #12503A;
+  --side-ink: #E3F0E8;
+  --side-ink-2: #9CC2AE;
+  --side-hi: #FFFFFF1F;
+  --focus: #0B6B3F;
+  --flow: var(--accent-2);
+  --code: #0F51320F;
+  --shadow-1: 0 1px 0 #ffffffcc inset, 0 6px 16px -10px #08301e59;
+  --shadow-2: 0 1px 0 #ffffffd9 inset, 0 14px 34px -18px #08301e73;
+  --shadow-3: 0 1px 0 #fffffff2 inset, 0 28px 60px -22px #08301e8c;
+  --glow: 0 0 0 1px #1e7a4e61, 0 12px 30px -12px #1e7a4e80;
+  --focus-ring: 0 0 0 2px #eaf2ec, 0 0 0 4px #0b6b3f;
+}
+
+[data-theme="dark"] {
+  --bg: #07140E;
+  --glass: #122E2294;
+  --glass-strong: #1A402FD9;
+  --ink: #E3F0E8;
+  --ink-2: #A6BEB0;
+  --ink-3: #8FAB9B;
+  --line: #96D7B429;
+  --line-strong: #96D7B499;
+  --accent: #7BD3A7;
+  --accent-2: #4FB784;
+  --accent-soft: #7BD3A724;
+  --on-accent: #05190F;
+  --amber: #E8B23E;
+  --on-amber: #1B1405;
+  --amber-text: #E8B23E;
+  --amber-soft: #E8B23E2B;
+  --danger: #F59A8E;
+  --danger-soft: #F08A7E2B;
+  --info: #8CC4EA;
+  --info-soft: #8CC4EA26;
+  --side: #051A11;
+  --side-2: #0C2D20;
+  --side-ink: #E3F0E8;
+  --side-ink-2: #9CC2AE;
+  --side-hi: #FFFFFF1A;
+  --focus: #9BE3BE;
+  --flow: var(--accent-2);
+  --code: #7BD3A714;
+  --shadow-1: 0 1px 0 #ffffff0f inset, 0 8px 20px -12px #000000b3;
+  --shadow-2: 0 1px 0 #ffffff14 inset, 0 16px 40px -20px #000000cc;
+  --shadow-3: 0 1px 0 #ffffff1f inset, 0 30px 70px -24px #000000e6;
+  --glow: 0 0 0 1px #7bd3a773, 0 12px 34px -12px #7bd3a766;
+  --focus-ring: 0 0 0 2px #07140e, 0 0 0 4px #9be3be;
+  color-scheme: dark;
+}
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
+  --radius-pill: 999px;
+  --border-hair: 0.5px;
+  --border-std: 1px;
+  --border-bold: 1.5px;
+  --icon-sm: 14px;
+  --icon-md: 18px;
+  --icon-lg: 22px;
+  --dur-fast: 160ms;
+  --dur-med: 280ms;
+  --dur-slow: 420ms;
+  --dur-flow: 3200ms;
+  --ease-out: cubic-bezier(.2, .7, .2, 1);
+  --ease-in-out: cubic-bezier(.45, 0, .2, 1);
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dialog: 40;
+  --z-toast: 50;
+  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+
+.display { font-family: var(--font-sans); font-size: 40px; line-height: 54px; font-weight: 600; letter-spacing: 0; }
+.h1 { font-family: var(--font-sans); font-size: 28px; line-height: 40px; font-weight: 600; }
+.h2 { font-family: var(--font-sans); font-size: 22px; line-height: 32px; font-weight: 600; }
+.h3 { font-family: var(--font-sans); font-size: 18px; line-height: 28px; font-weight: 600; }
+.body { font-family: var(--font-sans); font-size: 15px; line-height: 24px; font-weight: 400; }
+.body-strong { font-family: var(--font-sans); font-size: 15px; line-height: 24px; font-weight: 600; }
+.small { font-family: var(--font-sans); font-size: 13.5px; line-height: 22px; font-weight: 400; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 18px; font-weight: 500; letter-spacing: 0.02em; }
+.mono { font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 400; }
+.figure { font-family: var(--font-mono); font-size: 44px; line-height: 52px; font-weight: 500; }
